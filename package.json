@@ -1,0 +1,13 @@
+{
+  "name": "dawnward",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dawnward - a 3D open-world action game that runs in the browser",
+  "scripts": {
+    "build": "node tools/build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.187.0"
+  }
+}
