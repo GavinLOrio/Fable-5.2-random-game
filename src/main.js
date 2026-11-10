@@ -116,7 +116,7 @@ function boot() {
     P.pickup = 4.5 * (1 + 0.35 * g('magnet'));
     P.dmgMul = (1 + 0.12 * g('might')) * (1 + 0.02 * P.shards + 0.03 * P.stardust);
     P.cdMul = Math.pow(0.92, g('haste'));
-    P.regen = 0.7 * g('regen');
+    P.regen = 0.4 + 0.7 * g('regen');
     P.crit = 0.05 + 0.08 * g('fortune');
     P.guard = Math.pow(0.91, g('guard'));
     P.hp = Math.min(P.hp, P.maxHp);
@@ -217,13 +217,13 @@ function boot() {
     scene.add(gh); eGhost[k] = gh;
   }
   const enemies = [];
-  function tierMul() { const t = lit(); return 1 + 0.38 * t + 0.05 * t * t + P.level * 0.02; }
+  function tierMul() { const t = lit(); return 1 + 0.34 * t + 0.04 * t * t + P.level * 0.02; }
   function spawnEnemy(type, x, z, o = {}) {
     if (enemies.length >= ECAP) return null;
     const d = ET[type], el = o.elite ? 1 : 0, t = lit();
     const e = {
       type, x, z, y: world.getHeight(x, z), r: d.r * (el ? 1.6 : 1), h: d.h * (el ? 1.6 : 1), scale: el ? 1.6 : 1, elite: el,
-      hp: d.hp * tierMul() * (el ? 7 : 1), dmg: d.dmg * (1 + 0.1 * t) * (el ? 1.5 : 1), spd: d.spd * (0.92 + Math.random() * 0.16) * (el ? 0.9 : 1),
+      hp: d.hp * tierMul() * (el ? 7 : 1), dmg: d.dmg * (1 + 0.08 * t) * (el ? 1.4 : 1), spd: d.spd * (0.92 + Math.random() * 0.16) * (el ? 0.9 : 1),
       xp: d.xp * (el ? 10 : 1), kx: 0, kz: 0, atkT: 0.5, flash: 0, ph: Math.random() * 10, wispT: 0, shootT: 1.5 + Math.random() * 2,
       face: 0, age: 0, ev: !!o.ev, boss: false, dead: false,
     };
@@ -429,7 +429,7 @@ function boot() {
     P.x = s ? s.x : world.START.x; P.z = s ? s.z : world.START.z;
     if (!world.reachable(P.x, P.z)) { P.x = world.START.x; P.z = world.START.z; }
     P.y = world.getHeight(P.x, P.z); P.facing = Math.PI;
-    boss.state = P.won ? 'dead' : 'dormant'; boss.e = null; titan.visible = !P.won; resetBoss();
+    boss.state = P.won ? 'dead' : 'dormant'; boss.e = null; boss.keep = null; titan.visible = !P.won; resetBoss();
     world.setDawn(P.won ? 1 : (lit() / 6) * 0.8, true);
     camYaw = 0; camTarget.set(P.x, P.y + 1.5, P.z);
     curBiome = -1; biomeT = 1.5; spawnT = 4; respawnGrace = 3;
@@ -461,6 +461,7 @@ function boot() {
   function die() {
     sfx.death(); fx.burst(P.x, P.y + 1, P.z, 60, 9, 3, 1.6, 0.6, { life: 1.1, size: 0.7 });
     if (ev) { ev.b.active = false; ev.b.charge *= 0.5; ev = null; show('charge', false); show('chargelabel', false); }
+    boss.keep = boss.e ? boss.e.hp / boss.e.maxHp : null;
     resetBoss();
     setState('dead');
   }
@@ -754,7 +755,8 @@ function boot() {
       type: 'titan', boss: true, x: 0, z: 0, y: world.crownY, r: 4.2, h: 9, scale: 1, elite: 0, hp: BOSS_HP * (1 + P.level * 0.02), dmg: 30, spd: 3.3, xp: 0,
       kx: 0, kz: 0, atkT: 1, flash: 0, ph: 0, wispT: 0, face: 0, age: 0, dead: false, ev: true,
     };
-    e.maxHp = e.hp; enemies.push(e); boss.e = e; boss.state = 'active'; boss.atkT = 2.6; boss.atkI = 0; boss.queue.length = 0;
+    e.maxHp = e.hp; if (boss.keep != null) e.hp = e.maxHp * Math.min(1, boss.keep + 0.2); boss.keep = null;
+    enemies.push(e); boss.e = e; boss.state = 'active'; boss.atkT = 2.6; boss.atkI = 0; boss.queue.length = 0;
     for (const o of enemies) if (!o.boss) o.dead = true;
     show('boss', true); sfx.roar(); fx.addShake(0.8);
     toast('Umbra Titan', 'The long night given form', 3.5);
@@ -789,7 +791,7 @@ function boot() {
   }
   function updateBoss(e, dt) {
     const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 0.001;
-    if (Math.hypot(P.x, P.z) > 115) { resetBoss(); toast('The Titan slumbers', 'Return to the Crown when you are ready', 3); return; }
+    if (Math.hypot(P.x, P.z) > 115) { boss.keep = null; resetBoss(); toast('The Titan slumbers', 'Return to the Crown when you are ready', 3); return; }
     if (d > 8) {
       e.x += (dx / d) * e.spd * dt; e.z += (dz / d) * e.spd * dt;
       const cd = Math.hypot(e.x, e.z); if (cd > 44) { e.x *= 44 / cd; e.z *= 44 / cd; }
@@ -867,7 +869,7 @@ function boot() {
         ev.spawnT -= dt;
         if (ev.spawnT <= 0) {
           ev.spawnT = Math.max(0.9, 1.8 - 0.12 * t);
-          const cap = 30 + 7 * t;
+          const cap = 26 + 6 * t;
           if (enemies.length < cap) spawnRing(b.x, b.z, 24, 33, 2 + Math.floor(t * 0.7), { ev: true }, Math.random() * TAU, 1.1);
         }
         if (!ev.elite && b.charge > 0.5 && t >= 1) {
