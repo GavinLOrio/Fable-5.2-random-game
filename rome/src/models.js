@@ -13,7 +13,7 @@ const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const cyl = (a, b, h, n = 10) => new THREE.CylinderGeometry(a, b, h, n);
 
 function weaponParts(kind) {
-  const y = -0.6, out = [];
+  const y = -0.3, out = [];
   const blade = (len, w, col = STEEL) => out.push(part(box(w, len, 0.025), col, T(0, y - len / 2, 0)), part(box(0.17, 0.045, 0.06), BRONZE, T(0, y + 0.01, 0)), part(box(0.05, 0.14, 0.05), WOOD, T(0, y + 0.09, 0)));
   if (kind === 'pugio') blade(0.3, 0.07);
   else if (kind === 'gladius' || kind === 'decima') { blade(0.62, 0.075); out.push(part(new THREE.SphereGeometry(0.045, 5, 4), kind === 'decima' ? 0xe0e0e8 : WOOD, T(0, y + 0.18, 0))); }
@@ -25,9 +25,9 @@ function weaponParts(kind) {
   return out;
 }
 function shieldParts(kind, col) {
-  if (kind === 'scutum' || kind === 'scutum13') return [part(new THREE.SphereGeometry(0.5, 8, 6), col ?? 0x9a2020, T(-0.06, -0.38, 0.17, 0.66, 1.12, 0.16)), part(new THREE.SphereGeometry(0.09, 6, 4), BRONZE, T(-0.06, -0.38, 0.26)), part(box(0.05, 1.0, 0.03), BRONZE, T(-0.06, -0.38, 0.24))];
-  if (kind === 'parma') return [part(new THREE.SphereGeometry(0.5, 8, 6), col ?? 0x7a5a3a, T(-0.06, -0.42, 0.16, 0.8, 0.8, 0.14)), part(new THREE.SphereGeometry(0.08, 6, 4), IRON, T(-0.06, -0.42, 0.24))];
-  if (kind === 'aspis') return [part(new THREE.SphereGeometry(0.5, 9, 6), col ?? BRONZE, T(-0.06, -0.4, 0.17, 0.98, 0.98, 0.2))];
+  if (kind === 'scutum' || kind === 'scutum13') return [part(new THREE.SphereGeometry(0.5, 8, 6), col ?? 0x9a2020, T(-0.06, -0.08, 0.17, 0.66, 1.12, 0.16)), part(new THREE.SphereGeometry(0.09, 6, 4), BRONZE, T(-0.06, -0.08, 0.26)), part(box(0.05, 1.0, 0.03), BRONZE, T(-0.06, -0.08, 0.24))];
+  if (kind === 'parma') return [part(new THREE.SphereGeometry(0.5, 8, 6), col ?? 0x7a5a3a, T(-0.06, -0.12, 0.16, 0.8, 0.8, 0.14)), part(new THREE.SphereGeometry(0.08, 6, 4), IRON, T(-0.06, -0.12, 0.24))];
+  if (kind === 'aspis') return [part(new THREE.SphereGeometry(0.5, 9, 6), col ?? BRONZE, T(-0.06, -0.1, 0.17, 0.98, 0.98, 0.2))];
   return [];
 }
 
@@ -65,60 +65,97 @@ function bodyGeo(L) {
   if (L.beard) p.push(part(box(0.18, 0.1, 0.08), hair, T(0, 1.58, 0.12)));
   return mergeGeometries(p);
 }
-function legGeo(L) {
-  const skin = L.skin ?? 0xe0b08a, long = L.toga || L.female;
-  return mergeGeometries([part(box(0.15, 0.6, 0.17), L.pants ?? skin, T(0, -0.3, 0)), part(box(0.16, 0.22, 0.2), long ? 0x8a6a48 : LEATHER, T(0, -0.7, 0.01))]);
+const skinOf = (L) => L.skin ?? 0xe0b08a;
+function thighGeo(L) { return mergeGeometries([part(cyl(0.09, 0.074, 0.44, 9), L.pants ?? skinOf(L), T(0, -0.21, 0))]); }
+function shinGeo(L) {
+  const boot = L.toga || L.female ? 0x8a6a48 : LEATHER;
+  return mergeGeometries([part(cyl(0.07, 0.052, 0.36, 9), L.pants ?? skinOf(L), T(0, -0.18, 0)), part(cyl(0.06, 0.066, 0.16, 9), boot, T(0, -0.3, 0)), part(box(0.125, 0.1, 0.27), boot, T(0, -0.39, 0.05)), part(new THREE.SphereGeometry(0.078, 8, 6), L.pants ?? skinOf(L), T(0, 0, 0))]);
 }
-function armGeo(L, right) {
-  const skin = L.skin ?? 0xe0b08a, sleeve = L.bare ? skin : L.toga ? 0xf2efe6 : L.armor === 'hamata' ? IRON : (L.tunic ?? 0xb8a888);
-  const p = [part(box(0.115, 0.26, 0.125), sleeve, T(0, -0.13, 0)), part(box(0.1, 0.34, 0.1), skin, T(0, -0.43, 0))];
+function upperArmGeo(L) {
+  const sleeve = L.bare ? skinOf(L) : L.toga ? 0xf2efe6 : L.armor === 'hamata' ? IRON : (L.tunic ?? 0xb8a888);
+  return mergeGeometries([part(new THREE.SphereGeometry(0.082, 9, 7), sleeve, T(0, 0, 0)), part(cyl(0.07, 0.056, 0.3, 9), sleeve, T(0, -0.15, 0))]);
+}
+function foreArmGeo(L, right) {
+  const skin = skinOf(L), p = [part(new THREE.SphereGeometry(0.058, 8, 6), skin, T(0, 0, 0)), part(cyl(0.054, 0.042, 0.27, 9), skin, T(0, -0.135, 0)), part(new THREE.SphereGeometry(0.054, 8, 6), skin, T(0, -0.3, 0, 1, 1.15, 1))];
   if (right) p.push(...weaponParts(L.weapon)); else p.push(...shieldParts(L.shield, L.shieldCol));
   return mergeGeometries(p);
 }
 
+// A jointed figure: hips, knees, shoulders and elbows, with the upper body on its own pivot
 export function makeHuman(look = {}) {
   const L = look, key = JSON.stringify(L);
-  const g = new THREE.Group();
-  const mk = (geo) => { const m = new THREE.Mesh(geo, charMat); m.renderOrder = 2; return m; };
-  const body = mk(cached('b' + key, () => bodyGeo(L)));
-  const legL = mk(cached('l' + key, () => legGeo(L))), legR = mk(legL.geometry);
-  const armR = mk(cached('r' + key, () => armGeo(L, true))), armL = mk(cached('a' + key, () => armGeo(L, false)));
-  body.castShadow = true;
-  legL.position.set(-0.12, 0.82, 0); legR.position.set(0.12, 0.82, 0);
-  armR.position.set(0.36, 1.42, 0); armL.position.set(-0.36, 1.42, 0);
-  armR.rotation.order = armL.rotation.order = 'YXZ';
-  g.add(body, legL, legR, armR, armL);
+  const g = new THREE.Group(), torso = new THREE.Group();
+  const parts = [];
+  const mk = (geo, shadow) => { const m = new THREE.Mesh(geo, charMat); m.renderOrder = 2; m.castShadow = !!shadow; parts.push(m); return m; };
+  const body = mk(cached('b' + key, () => bodyGeo(L)), true);
+  body.position.y = -0.9; torso.position.y = 0.9; torso.add(body);
+  const arm = (side, right) => {
+    const sh = new THREE.Group(), el = new THREE.Group();
+    sh.position.set(side * 0.36, 0.52, 0); sh.rotation.order = 'YXZ'; el.position.y = -0.3;
+    const up = mk(cached('u' + key, () => upperArmGeo(L))), fore = mk(cached((right ? 'r' : 'a') + key, () => foreArmGeo(L, right)), true);
+    sh.add(up, el); el.add(fore); torso.add(sh);
+    return [sh, el, up, fore];
+  };
+  const leg = (side) => {
+    const hip = new THREE.Group(), knee = new THREE.Group();
+    hip.position.set(side * 0.12, 0.88, 0); knee.position.y = -0.44;
+    hip.add(mk(cached('t' + key, () => thighGeo(L)))); knee.add(mk(cached('s' + key, () => shinGeo(L)))); hip.add(knee); g.add(hip);
+    return [hip, knee];
+  };
+  const [shR, elR, upR, foreR] = arm(1, true), [shL, elL, upL, foreL] = arm(-1, false);
+  const [hipL, kneeL] = leg(-1), [hipR, kneeR] = leg(1);
+  g.add(torso);
   if (L.scale) g.scale.setScalar(L.scale);
-  return { g, body, legL, legR, armR, armL, look: L, parts: [body, legL, legR, armR, armL], ghost: null };
+  const shielded = L.shield && L.shield !== 'none' && L.shield !== 'noshield';
+  return { g, torso, body, shR, elR, shL, elL, hipL, kneeL, hipR, kneeR, look: L, parts, ghostParts: [body, upR, upL, foreR, foreL], shielded, ghost: null };
 }
 export function addGhost(h) {
-  h.ghost = [h.body, h.armR, h.armL].map((m) => { const q = new THREE.Mesh(m.geometry, ghostMat); q.renderOrder = 5; m.add(q); return q; });
+  h.ghost = h.ghostParts.map((m) => { const q = new THREE.Mesh(m.geometry, ghostMat); q.renderOrder = 5; m.add(q); return q; });
 }
 export function setFlash(h, on) { const m = on ? flashMat : charMat; for (const p of h.parts) p.material = m; }
 export function disposeHuman(h) { h.g.removeFromParent(); }
 
-// st: { mv 0..1, ph, atk -1|0..1, kind 0..2, block 0..1, dead 0..1, ride, ranged, stag }
+// st: { mv 0..1, ph, t, atk -1|0..1, kind 0..2, block 0..1, dead 0..1, ride, ranged, stag, climb, swim, air, sneak, talk }
 export function poseHuman(h, st) {
-  const s = Math.sin(st.ph), mv = st.mv;
-  if (st.ride) { h.legL.rotation.set(-1.1, 0, -0.5); h.legR.rotation.set(-1.1, 0, 0.5); }
-  else { h.legL.rotation.set(s * 0.75 * mv, 0, 0); h.legR.rotation.set(-s * 0.75 * mv, 0, 0); }
-  h.body.position.y = st.ride ? 0 : Math.abs(Math.cos(st.ph)) * 0.05 * mv;
-  let rx = -0.75 - s * 0.25 * mv, ry = 0, bodyX = 0.08 * mv, bodyY = 0;
-  if (st.ride) rx = -0.5;
-  if (st.atk >= 0) {
-    const t = st.atk, w = t < 0.35 ? t / 0.35 : 1, q = t < 0.35 ? 0 : Math.min(1, (t - 0.35) / 0.3), e = 1 - (1 - q) * (1 - q);
-    if (st.ranged) { rx = -1.5 + (t > 0.6 ? (t - 0.6) * 1.5 : 0); }
-    else if (st.kind === 0) { rx = -1.3; ry = -1.2 * w + 2.5 * e; bodyY = -0.5 * w + 1.0 * e; }
-    else if (st.kind === 1) { rx = -1.3; ry = 1.3 * w - 2.5 * e; bodyY = 0.5 * w - 1.0 * e; }
-    else { rx = -2.9 * w + 2.0 * e; bodyX = -0.2 * w + 0.55 * e; }
+  const t = st.ph, s = Math.sin(t), c = Math.cos(t), mv = st.mv || 0, bt = st.t || 0, br = Math.sin(bt * 1.7);
+  // legs: thigh swing with the knee folding as the leg comes through
+  let tL = -s * 0.74 * mv, tR = s * 0.74 * mv, kL = 0.06 + Math.max(0, c) * 1.05 * mv, kR = 0.06 + Math.max(0, -c) * 1.05 * mv, zL = 0, zR = 0;
+  // arms: counter-swing; the weapon arm stays half raised
+  let sRx = -0.32 + s * 0.38 * mv, sRy = 0, sRz = 0.06, eR = -0.8 - 0.15 * mv;
+  let sLx = -0.05 - s * 0.6 * mv, sLy = 0, sLz = -0.06, eL = -0.25 - 0.45 * mv - Math.max(0, -s) * 0.3 * mv;
+  let lean = 0.11 * mv + br * 0.012, twist = s * 0.11 * mv, roll = c * 0.025 * mv, drop = (Math.cos(t * 2) * 0.5 - 0.5) * 0.055 * mv, gx = 0, gz = 0;
+  if (h.shielded) { sLx = -0.3 - s * 0.18 * mv; sLy = 0.3; eL = -0.95; }
+  if (st.sneak) { lean += 0.45; drop -= 0.17; tL -= 0.78; tR -= 0.78; kL += 1.25; kR += 1.25; sRx -= 0.2; eL -= 0.3; }
+  if (st.ride) { tL = tR = -1.32; zL = -0.42; zR = 0.42; kL = kR = 1.25; sRx = -0.75; eR = -0.85; sLx = -0.75; sLy = 0; eL = -0.85; lean = 0.06 + mv * 0.12; twist = 0; roll = 0; drop = 0; }
+  if (st.air) { tL = -1.0; tR = -0.3; kL = 1.35; kR = 0.75; sRx = -1.5; sLx = -1.5; sRz = 0.7; sLz = -0.7; eR = eL = -0.45; lean = 0.15; twist = 0; }
+  if (st.talk) { sRx = -1.0 + Math.sin(bt * 2.6) * 0.22; sRy = -0.3; eR = -1.25 + Math.sin(bt * 3.3) * 0.2; }
+  if (st.atk >= 0 && !st.ride) {
+    const a = st.atk, w = a < 0.35 ? a / 0.35 : 1, q = a < 0.35 ? 0 : Math.min(1, (a - 0.35) / 0.28), e = 1 - (1 - q) * (1 - q), back = a > 0.63 ? (a - 0.63) / 0.37 : 0;
+    if (st.ranged) { sRx = -1.55; eR = -0.15 - (a > 0.6 ? 0 : w * 0.9); sLx = -1.5; eL = -0.1; twist = -0.5; }
+    else if (st.kind === 0) { sRx = -1.35; sRy = -1.25 * w + 2.55 * e - 0.5 * back; eR = -1.35 * w + 1.2 * e; twist = -0.55 * w + 1.05 * e - 0.3 * back; lean = 0.12 + 0.2 * e; }
+    else if (st.kind === 1) { sRx = -1.25; sRy = 1.35 * w - 2.6 * e + 0.5 * back; eR = -1.3 * w + 1.15 * e; twist = 0.55 * w - 1.05 * e + 0.3 * back; lean = 0.12 + 0.2 * e; }
+    else { sRx = -3.0 * w + 2.15 * e; eR = -1.5 * w + 1.35 * e; lean = -0.22 * w + 0.6 * e - 0.15 * back; twist = 0.25 * w - 0.25 * e; }
+    // step into the blow
+    tL += -0.5 * e + 0.2 * back; kL += 0.35 * e; tR += 0.35 * e; kR += 0.1;
   }
-  if (st.climb) { h.armR.rotation.set(-2.7 + s * 0.45, 0, 0); h.armL.rotation.set(-2.7 - s * 0.45, 0, 0); h.legL.rotation.set(-0.5 - s * 0.5, 0, 0); h.legR.rotation.set(-0.5 + s * 0.5, 0, 0); h.body.rotation.set(-0.12, 0, 0); h.g.rotation.x = 0; return; }
-  h.armR.rotation.set(rx, ry, 0);
-  const bl = st.block;
-  h.armL.rotation.set((s * 0.4 * mv - 0.15) * (1 - bl) - 1.0 * bl, 0.5 * bl, 0);
-  h.body.rotation.set(bodyX + (st.stag || 0) * -0.4, bodyY * 0.5, 0);
-  h.g.rotation.x = -st.dead * 1.5;
-  h.g.position.y += -st.dead * 0.15;
+  const bl = st.block || 0;
+  if (bl > 0) { sLx = sLx * (1 - bl) - 1.15 * bl; sLy = sLy * (1 - bl) + 0.55 * bl; eL = eL * (1 - bl) - 1.25 * bl; lean += 0.12 * bl; tL -= 0.25 * bl; kL += 0.4 * bl; kR += 0.3 * bl; drop -= 0.07 * bl; }
+  if (st.climb) { sRx = -2.75 + s * 0.5; sLx = -2.75 - s * 0.5; sRy = sLy = 0; sRz = 0.15; sLz = -0.15; eR = -0.75 + s * 0.45; eL = -0.75 - s * 0.45; tL = -0.75 - s * 0.6; tR = -0.75 + s * 0.6; kL = 1.25 + s * 0.5; kR = 1.25 - s * 0.5; lean = -0.1; twist = s * 0.12; drop = 0; }
+  if (st.swim) {
+    const k = Math.min(1, mv * 1.5), u = 0.5 + 0.5 * s;
+    if (k > 0.15) { gx = 1.22; sRx = sLx = -2.95 + u * 0.7; sRz = 0.15 + u * 1.25; sLz = -0.15 - u * 1.25; sRy = sLy = 0; eR = eL = -0.25 - (1 - u) * 0.7; tL = 0.1 + s * 0.4; tR = 0.1 - s * 0.4; kL = 0.35 + Math.max(0, c) * 0.5; kR = 0.35 + Math.max(0, -c) * 0.5; lean = -0.25; twist = 0; }
+    else { const v = Math.sin(bt * 2.4); gx = 0.2; sRx = sLx = -0.9; sRz = 0.9 + v * 0.35; sLz = -0.9 - v * 0.35; eR = eL = -0.5; tL = v * 0.45; tR = -v * 0.45; kL = kR = 0.5; lean = 0; twist = 0; }
+    drop = 0;
+  }
+  if (st.stag) { lean -= 0.42; sRz += 0.5; sLz -= 0.5; }
+  const dd = st.dead || 0;
+  if (dd > 0) { gx = -dd * 1.52; sRz += dd * 1.1; sLz -= dd * 1.1; eR *= 1 - dd; eL *= 1 - dd; tL *= 1 - dd; tR *= 1 - dd; kL = kL * (1 - dd) + 0.3 * dd; lean *= 1 - dd; }
+  h.hipL.rotation.set(tL, 0, zL); h.hipR.rotation.set(tR, 0, zR); h.kneeL.rotation.x = kL; h.kneeR.rotation.x = kR;
+  h.shR.rotation.set(sRx, sRy, sRz); h.elR.rotation.x = eR; h.shL.rotation.set(sLx, sLy, sLz); h.elL.rotation.x = eL;
+  h.torso.rotation.set(lean, twist, roll); h.torso.position.y = 0.9 + drop;
+  h.hipL.position.y = h.hipR.position.y = 0.88 + drop;
+  h.g.rotation.x = gx; h.g.rotation.z = gz;
+  h.g.position.y -= dd * 0.15;
 }
 
 // ---------- horse / wolf ----------
@@ -137,7 +174,7 @@ export function makeHorse(o = {}) {
   const lg = mergeGeometries([part(box(0.15, 0.72, 0.16), coat, T(0, -0.36, 0)), part(box(0.16, 0.2, 0.17), dark, T(0, -0.82, 0))]);
   const legs = [[-0.21, 0.56], [0.21, 0.56], [-0.21, -0.6], [0.21, -0.6]].map(([x, z]) => { const m = new THREE.Mesh(lg, charMat); m.position.set(x, 0.92, z); m.renderOrder = 2; g.add(m); return m; });
   g.add(body);
-  if (wolf) g.scale.set(0.5, 0.5, 0.62);
+  if (wolf) { const z = o.size ?? 0.5; g.scale.set(z * (o.wide ?? 1), z, z * 1.24); }
   return { g, body, legs, parts: [body, ...legs] };
 }
 export function poseHorse(h, ph, mv) {

@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { feature } from 'topojson-client';
 
-export const LON0 = -10, LON1 = 37, LAT0 = 29.5, LAT1 = 48;
+export const LON0 = -11, LON1 = 42, LAT0 = 24, LAT1 = 54;
 const PXD = 30;                         // pixels per degree of longitude
 const KX = 200, KZ = 254;               // world units per degree (lon, lat)
 const W = Math.round((LON1 - LON0) * PXD), H = Math.round((LAT1 - LAT0) * PXD * KZ / KX);

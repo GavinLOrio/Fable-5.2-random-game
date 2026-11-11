@@ -13,6 +13,25 @@ const MARBLE = 0xece6d8, BRONZE = 0xb8923a, WOOD = 0x6b4a2f, PAVE = 0xb4ab9a;
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const cyl = (a, b, h, n = 8) => new THREE.CylinderGeometry(a, b, h, n);
 const mat = litMat({}, 'city');
+function triGeo(tris) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(tris.flat(2), 3));
+  g.computeVertexNormals();
+  return g;
+}
+// hip roof on a w x d rectangle: four slopes meeting in a ridge along the longer side
+export function hipRoof(w, d, rise) {
+  const turn = d > w, L = turn ? d : w, S = turn ? w : d, hl = L / 2, hs = S / 2, rx = hl - hs;
+  const A = [-hl, 0, -hs], B = [hl, 0, -hs], C = [hl, 0, hs], D = [-hl, 0, hs], R1 = [-rx, rise, 0], R2 = [rx, rise, 0];
+  const g = triGeo([[D, C, R2], [D, R2, R1], [B, A, R1], [B, R1, R2], [C, B, R2], [A, D, R1], [A, B, C], [A, C, D]]);
+  if (turn) g.rotateY(Math.PI / 2);
+  return g;
+}
+// gable roof: two slopes, ridge running along the depth (local z), triangular ends
+export function gableRoof(w, d, rise) {
+  const hw = w / 2, hd = d / 2, A = [-hw, 0, -hd], B = [hw, 0, -hd], C = [hw, 0, hd], D = [-hw, 0, hd], R1 = [0, rise, -hd], R2 = [0, rise, hd];
+  return triGeo([[C, B, R1], [C, R1, R2], [A, D, R2], [A, R2, R1], [D, C, R2], [B, A, R1], [A, B, C], [A, C, D]]);
+}
 
 // Builds one settlement. reserved: [[dx, dz, r]] spots that must stay clear. Returns { mesh, obs } with obs in world coordinates.
 export function buildCity(site, world, reserved) {
@@ -30,8 +49,8 @@ export function buildCity(site, world, reserved) {
   function house(x, z, w, d, h, ry, flatRoof) {
     const col = pick(st.walls);
     B(w, h, d, col, x, h / 2, z, ry);
-    if (flatRoof) { B(w + 0.4, 0.35, d + 0.4, st.roof, x, h + 0.17, z, ry); if (rng() < 0.4) B(w * 0.4, 1.4, d * 0.4, col, x + Math.cos(ry) * w * 0.2, h + 0.9, z - Math.sin(ry) * w * 0.2, ry); }
-    else P.push(part(new THREE.ConeGeometry(0.7071, 1, 4), st.roof, T(x, h + (1.2 + h * 0.12) / 2, z, w * 1.12, 1.2 + h * 0.12, d * 1.12, 0, ry + Math.PI / 4, 0)));
+    if (flatRoof) { B(w + 0.4, 0.35, d + 0.4, st.roof, x, h + 0.17, z, ry); for (const sx of [-1, 1]) B(0.3, 0.5, d + 0.4, st.roof, x + Math.cos(ry) * sx * (w / 2 + 0.05), h + 0.55, z - Math.sin(ry) * sx * (w / 2 + 0.05), ry); if (rng() < 0.4) { const hx = x + Math.cos(ry) * w * 0.2, hz = z - Math.sin(ry) * w * 0.2; B(w * 0.4, 1.4, d * 0.4, col, hx, h + 1.05, hz, ry); ob(hx, hz, w * 0.2, d * 0.2, ry, h + 1.75); } }
+    else P.push(part(hipRoof(w + 0.7, d + 0.7, 1.2 + h * 0.12), st.roof, T(x, h, z, 1, 1, 1, 0, ry, 0)));
     const cs = Math.cos(ry), sn = Math.sin(ry), L = (lx, lz) => [x + lx * cs + lz * sn, z - lx * sn + lz * cs];
     B(w + 0.24, 0.55, d + 0.24, st.stone, x, 0.27, z, ry);
     { const [px, pz] = L(w * 0.18, d / 2 + 0.04); B(0.95, 1.8, 0.14, 0x4a3524, px, 0.9, pz, ry); B(1.25, 0.16, 0.2, st.stone, px, 1.9, pz, ry); }
@@ -51,16 +70,16 @@ export function buildCity(site, world, reserved) {
     const side = Math.max(3, Math.round(d / 2.6));
     for (let i = 1; i < side; i++) { const lz = -d / 2 + 0.7 + (i / side) * (d - 1.4); for (const lx of [-w / 2 + 0.7, w / 2 - 0.7]) { const [px, pz] = tx(lx, lz); oc(px, pz, 0.42, oy + 1.3 + h); P.push(part(cyl(0.36, 0.42, h, 10), col, T(px, 1.3 + h / 2, pz))); } }
     B(w, 0.7, d, col, x, 1.3 + h + 0.35, z, ry);
-    P.push(part(cyl(1, 1, 1, 3), roof, T(x, 1.3 + h + 0.7 + w * 0.11, z, w * 0.58, d + 0.6, w * 0.22 / 1.5 * 2.2, Math.PI / 2, ry, 0)));
-    ob(x, z, w / 2, d / 2, ry, oy + 1.3); ob(cx, cz, w * 0.33, d * 0.31, ry, oy + 2 + h); ob(x, z, w / 2, d / 2, ry, oy + 2 + h, { plat: 1 });
+    P.push(part(gableRoof(w + 0.5, d + 0.7, w * 0.2), roof, T(x, 1.3 + h + 0.7, z, 1, 1, 1, 0, ry, 0)));
+    ob(x, z, w / 2, d / 2, ry, oy + 1.3); ob(cx, cz, w * 0.33, d * 0.31, ry, oy + 2 + h); ob(x, z, w / 2, d / 2, ry, oy + 2 + h, { plat: 1, gab: w * 0.2 });
   }
   function theatre(x, z, r, ry) {
     for (let k = 0; k < 5; k++) P.push(part(new THREE.CylinderGeometry(r - k * 1.6, r - k * 1.6, 1.1, 14, 1, false, 0, Math.PI), st.stone, T(x, 0.55 + k * 1.1, z, 1, 1, 1, 0, ry, 0)));
-    B(r * 2, 7, 1.6, pick(st.walls), x + Math.cos(ry) * 0 + Math.sin(ry + Math.PI / 2) * 0, 3.5, z, ry + Math.PI / 2);
+    B(r * 2, 7, 1.6, pick(st.walls), x, 3.5, z, ry + Math.PI / 2); ob(x, z, r, 0.8, ry + Math.PI / 2, 7);
     for (let k = 0; k < 5; k++) oc(x, z, r - k * 1.6, (k + 1) * 1.1, 1);
   }
   function stall(x, z, ry, col) { B(2.6, 1.0, 1.4, WOOD, x, 0.5, z, ry); B(3.2, 0.12, 2.2, col, x, 2.4, z, ry, 0.18); for (const sx of [-1.3, 1.3]) P.push(part(cyl(0.06, 0.06, 2.4, 4), WOOD, T(x + Math.cos(ry) * sx, 1.2, z - Math.sin(ry) * sx))); ob(x, z, 1.3, 0.7, ry, 1.0); }
-  function standard(x, z) { P.push(part(cyl(0.05, 0.05, 4.2, 5), WOOD, T(x, 2.1, z)), part(box(0.9, 0.1, 0.08), BRONZE, T(x, 3.6, z)), part(box(0.5, 0.5, 0.06), 0xa01818, T(x, 3.2, z)), part(box(0.7, 0.34, 0.12), [1.3, 1.0, 0.35], T(x, 4.3, z)), part(box(0.16, 0.3, 0.3), [1.3, 1.0, 0.35], T(x, 4.5, z))); }
+  function standard(x, z) { oc(x, z, 0.25, 4.4); P.push(part(cyl(0.05, 0.05, 4.2, 5), WOOD, T(x, 2.1, z)), part(box(0.9, 0.1, 0.08), BRONZE, T(x, 3.6, z)), part(box(0.5, 0.5, 0.06), 0xa01818, T(x, 3.2, z)), part(box(0.7, 0.34, 0.12), [1.3, 1.0, 0.35], T(x, 4.3, z)), part(box(0.16, 0.3, 0.3), [1.3, 1.0, 0.35], T(x, 4.5, z))); }
   function palm(x, z) { oc(x, z, 0.4, 40); P.push(part(cyl(0.16, 0.26, 6, 5), 0x8a6a48, T(x, 3, z))); for (let k = 0; k < 6; k++) { const a = (k / 6) * TAU; P.push(part(new THREE.ConeGeometry(0.34, 2.6, 3), 0x3f7f36, T(x + Math.cos(a) * 1.1, 5.7, z + Math.sin(a) * 1.1, 1, 1, 1, Math.sin(a) * -1.95, 0, Math.cos(a) * 1.95))); } }
   function ringWall(rad, hgt, thick, col, towers, gates) {
     const n = Math.round((TAU * rad) / 11);
@@ -133,20 +152,32 @@ export function buildCity(site, world, reserved) {
     }
     if (site.style === 'egypt' || site.style === 'punic' || site.style === 'east') for (let i = 0; i < 9; i++) { const a = rng() * TAU, r = 10 + rng() * (R - 16), x = Math.cos(a) * r, z = Math.sin(a) * r; if (onLand(x, z) && free(x, z, 3) && Math.abs(x) > 4 && Math.abs(z) > 4 && !obs.some((o) => Math.hypot(site.x + x - o.x, site.z + z - o.z) < 7)) palm(x, z); }
     ringWall(R - 2, k === 'town' ? 5 : 6.5, 2, st.stone, true, [0, Math.PI / 2, Math.PI, Math.PI * 1.5]);
-  } else if (k === 'camp') {
+  } else if (k === 'camp' || k === 'fort') {
     const h = R - 4;
     for (const [ax, az, len, ry] of [[0, -h, h * 2, 0], [0, h, h * 2, 0], [-h, 0, h * 2, Math.PI / 2], [h, 0, h * 2, Math.PI / 2]]) for (const sgn of [-1, 1]) {
       const l = len / 2 - 3.5, cx = ax + (ry ? 0 : sgn * (l / 2 + 3.5)), cz = az + (ry ? sgn * (l / 2 + 3.5) : 0);
-      B(l, 2.6, 0.7, 0x7a5a38, cx, 1.3, cz, ry); B(l + 1, 1.0, 2.6, 0x8f8362, cx, 0.5, cz, ry); ob(cx, cz, l / 2, 0.6, ry, 2.7);
+      const ph = k === 'fort' ? 3.6 : 2.6;
+      B(l, ph, 0.7, k === 'fort' ? 0x5a4630 : 0x7a5a38, cx, ph / 2, cz, ry); B(l + 1, 1.0, 2.6, 0x8f8362, cx, 0.5, cz, ry); ob(cx, cz, l / 2, 0.45, ry, ph);
     }
     for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
       const x = i * 8.5, z = j * 8.5;
       if ((Math.abs(i) < 1 && Math.abs(j) < 2) || Math.abs(x) < 3 || Math.abs(z) < 3 || !free(x, z, 5)) continue;
-      P.push(part(cyl(1, 1, 1, 3), 0x8a6a48, T(x, 1.05, z, 2.2, 4.2, 1.4, Math.PI / 2, 0, 0))); ob(x, z, 1.9, 2.1, 0, 2.4);
+      P.push(part(gableRoof(3.2, 4.4, 2.1), 0x8a6a48, T(x, 0, z))); ob(x, z, 1.1, 2.1, 0, 1.7);
     }
-    B(8, 3.2, 6, 0xb89a6a, 0, 1.6, -9); P.push(part(new THREE.ConeGeometry(0.7071, 1, 4), 0xa01818, T(0, 4.2, -9, 9, 2, 7, 0, Math.PI / 4, 0))); ob(0, -9, 4, 3, 0, 3.2, { roof: 2 });
+    B(8, 3.2, 6, 0xb89a6a, 0, 1.6, -9); P.push(part(hipRoof(9, 7, 2), k === 'fort' ? 0x2a2a34 : 0xa01818, T(0, 3.2, -9))); ob(0, -9, 4, 3, 0, 3.2, { roof: 2 });
     standard(-5.5, -4.5); standard(5.5, -4.5);
-    P.push(part(cyl(0.9, 1.1, 0.3, 7), 0x5a5048, T(6, 0.15, 5)), part(new THREE.ConeGeometry(0.5, 1.1, 5), [3.2, 1.4, 0.3], T(6, 0.8, 5)));
+    P.push(part(cyl(0.9, 1.1, 0.3, 7), 0x5a5048, T(6, 0.15, 5)), part(new THREE.ConeGeometry(0.5, 1.1, 5), [3.2, 1.4, 0.3], T(6, 0.8, 5))); oc(6, 5, 1.0, 0.4, 1);
+    if (k === 'fort') {   // corner watchtowers, a hostile banner and the strongbox spot
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { B(3.4, 7, 3.4, 0x5a4630, sx * h, 3.5, sz * h); B(4, 0.4, 4, 0x4a3828, sx * h, 7.2, sz * h); ob(sx * h, sz * h, 1.7, 1.7, 0, 7.4); }
+      P.push(part(cyl(0.07, 0.07, 6, 5), WOOD, T(0, 3, 3.2)), part(box(1.8, 1.1, 0.08), 0x1f1f2a, T(0.95, 5.3, 3.2))); oc(0, 3.2, 0.25, 6);
+      site.chest = { x: site.x + 5.5, z: site.z - 6.5 };
+    }
+  } else if (k === 'tower') {
+    B(5, 14, 5, st.stone, 0, 7, 0); B(6, 0.6, 6, st.stone, 0, 14.3, 0);
+    for (const [mx, mz] of [[-2.5, -2.5], [2.5, -2.5], [-2.5, 2.5], [2.5, 2.5], [0, -2.7], [0, 2.7], [-2.7, 0], [2.7, 0]]) B(1, 0.9, 1, st.stone, mx, 15.05, mz);
+    B(1.1, 2, 0.2, 0x4a3524, 0, 1, 2.52);
+    P.push(part(cyl(0.5, 0.35, 0.8, 7), 0x3a3430, T(0, 15, 0)), part(new THREE.ConeGeometry(0.42, 1.0, 6), [3.4, 1.6, 0.35], T(0, 15.8, 0)));
+    ob(0, 0, 2.5, 2.5, 0, 14.6); site.topY = y0 + 14.6;
   } else if (k === 'oppidum') {
     ringWall(R - 2, 3.4, 2.6, 0x7a6248, false, [0, Math.PI]);
     for (let i = 0; i < 16; i++) {
@@ -163,7 +194,7 @@ export function buildCity(site, world, reserved) {
       const a = rng() * TAU, r = 4 + rng() * (R - 8), x = Math.cos(a) * r, z = Math.sin(a) * r, t = rng();
       if (!free(x, z, 3.5) || !onLand(x, z)) continue;
       if (t < 0.45) { const h = 1 + rng() * 5; P.push(part(cyl(0.4, 0.48, h, 9), MARBLE, T(x, h / 2, z))); oc(x, z, 0.55, h, 1); }
-      else if (t < 0.7) { P.push(part(cyl(0.42, 0.42, 3 + rng() * 3, 7), 0xddd6c6, T(x, 0.42, z, 1, 1, 1, 0, rng() * TAU, Math.PI / 2))); }
+      else if (t < 0.7) { const cl = 3 + rng() * 3, cr = rng() * TAU; P.push(part(cyl(0.42, 0.42, cl, 9), 0xddd6c6, T(x, 0.42, z, 1, 1, 1, 0, cr, Math.PI / 2))); ob(x, z, cl / 2, 0.42, cr, 0.84); }
       else { const w = 3 + rng() * 6, h = 0.8 + rng() * 2.4, ry = rng() * TAU; B(w, h, 1.1, st.stone, x, h / 2, z, ry); ob(x, z, w / 2, 0.6, ry, h); }
     }
     B(11, 1.3, 16, st.stone, 0, 0.65, -12); for (let i = 0; i < 4; i++) column(-4.3 + i * 2.9, -5, 2 + rng() * 4.5); ob(0, -12, 5.5, 8, 0, 1.4);
@@ -183,16 +214,17 @@ export function buildCity(site, world, reserved) {
     {
       const total = Math.hypot(site.moor.x - site.dock.x, site.moor.z - site.dock.z);
       let t0 = 0; while (t0 < total && world.getHeight(site.dock.x + ux * t0, site.dock.z + uz * t0) > 1.45) t0 += 0.5;
-      const t1 = Math.max(t0 + 9, total - 3.5), len = t1 - t0, mx = dx + ux * (t0 + len / 2), mz = dz + uz * (t0 + len / 2), top = 1.6;
+      const t1 = Math.min(t0 + 42, Math.max(t0 + 9, total - 3.5)), len = t1 - t0, mx = dx + ux * (t0 + len / 2), mz = dz + uz * (t0 + len / 2), top = 1.6;
       B(4.6, 0.4, len, WOOD, mx, top - 0.2 - y0, mz, ry);
       for (const sgn of [-1, 1]) B(0.22, 0.7, len, 0x5a3a20, mx - uz * sgn * 2.2, top + 0.35 - y0, mz + ux * sgn * 2.2, ry);
       for (let q = 1; q < len; q += 4.5) for (const sgn of [-1, 1]) P.push(part(cyl(0.2, 0.22, 6, 6), 0x5a3a20, T(dx + ux * (t0 + q) - uz * sgn * 2.0, top - 3.2 - y0, dz + uz * (t0 + q) + ux * sgn * 2.0)));
       obs.push({ x: site.x + mx, z: site.z + mz, hw: 2.3, hd: len / 2, c: Math.cos(ry), s: Math.sin(ry), h: 0, top, plat: 1 });
       site.pierEnd = { x: site.dock.x + ux * (t1 - 2), z: site.dock.z + uz * (t1 - 2) };
+      for (const off of [5.5, 8, 11, 15]) { const qx = site.dock.x + ux * (t1 + off), qz = site.dock.z + uz * (t1 + off); if (world.sailable(qx, qz)) { site.moor = { x: qx, z: qz }; break; } }
     }
     for (const s of [-1, 1]) { const px = dx - uz * s * 9, pz = dz + ux * s * 9; if (free(px, pz, 4) && onLand(px, pz, 0.55)) { B(6, 3.4, 5, pick(st.walls), px, 1.7, pz, ry); B(6.6, 0.4, 5.6, st.roof, px, 3.6, pz, ry); ob(px, pz, 3, 2.5, ry, 3.8); } }
-    P.push(part(cyl(0.12, 0.12, 3.6, 5), WOOD, T(dx, 1.8, dz)), part(box(1.5, 0.9, 0.1), 0x2f4a7a, T(dx, 3.2, dz, 1, 1, 1, 0, ry, 0)));
-    for (const s of [-1, 1]) { const bx = site.moor.x - site.x - uz * s * 9, bz = site.moor.z - site.z + ux * s * 9; if (world.landF(site.x + bx, site.z + bz) < 0.47) { P.push(part(box(1.6, 0.9, 5.5), 0x7a5230, T(bx, 0.3 - y0, bz, 1, 1, 1, 0, ry + s * 0.4, 0)), part(cyl(0.07, 0.07, 3.2, 5), WOOD, T(bx, 1.8 - y0, bz))); } }
+    P.push(part(cyl(0.12, 0.12, 3.6, 5), WOOD, T(dx, 1.8, dz)), part(box(1.5, 0.9, 0.1), 0x2f4a7a, T(dx, 3.2, dz, 1, 1, 1, 0, ry, 0))); oc(dx, dz, 0.3, 3.6);
+    for (const s of [-1, 1]) { const bx = site.moor.x - site.x - uz * s * 9, bz = site.moor.z - site.z + ux * s * 9; if (world.landF(site.x + bx, site.z + bz) < 0.47) { P.push(part(box(1.6, 0.9, 5.5), 0x7a5230, T(bx, 0.3 - y0, bz, 1, 1, 1, 0, ry + s * 0.4, 0)), part(cyl(0.07, 0.07, 3.2, 5), WOOD, T(bx, 1.8 - y0, bz))); obs.push({ x: site.x + bx, z: site.z + bz, hw: 0.8, hd: 2.75, c: Math.cos(ry + s * 0.4), s: Math.sin(ry + s * 0.4), h: 0, top: 0.75 }); } }
   }
   for (const b of obs) { if (b.h == null) b.h = 40; if (b.top == null) b.top = y0 + b.h; }
   if (!P.length) return { mesh: null, obs };
@@ -205,9 +237,10 @@ export function buildCity(site, world, reserved) {
 export const STEP = 0.6;
 // height of an obstacle's walkable surface at a point (roofs slope up to a ridge)
 export function topAt(b, x, z) {
-  if (b.r != null || !b.roof) return b.top;
-  const dx = x - b.x, dz = z - b.z, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c;
-  return b.top + b.roof * Math.max(0, 1 - Math.max(Math.abs(lx) / b.hw, Math.abs(lz) / b.hd));
+  if (b.r != null || (!b.roof && !b.gab)) return b.top;
+  const dx = x - b.x, dz = z - b.z, lx = Math.abs(dx * b.c - dz * b.s), lz = Math.abs(dx * b.s + dz * b.c);
+  if (b.gab) return b.top + b.gab * Math.max(0, 1 - lx / b.hw);
+  return b.top + b.roof * Math.max(0, Math.min(1, Math.min(b.hw - lx, b.hd - lz) / Math.min(b.hw, b.hd)));
 }
 export function inside(b, x, z, pad = 0) {
   const dx = x - b.x, dz = z - b.z;
@@ -217,7 +250,7 @@ export function inside(b, x, z, pad = 0) {
 // highest surface an entity standing at height y can be on at (x, z); ground is the terrain height there
 export function surfaceAt(obs, x, z, y, ground) {
   let g = ground;
-  if (obs) for (const b of obs) { if (b.top + (b.roof || 0) <= g || (b.r != null && !b.stand)) continue; if (!inside(b, x, z)) continue; const t = topAt(b, x, z); if (t <= y + STEP && t > g) g = t; }
+  if (obs) for (const b of obs) { if (b.top + (b.roof || b.gab || 0) <= g || (b.r != null && !b.stand)) continue; if (!inside(b, x, z)) continue; const t = topAt(b, x, z); if (t <= y + STEP && t > g) g = t; }
   return g;
 }
 // push a circle at height y out of every obstacle too tall to step onto; returns the wall it hit, if any

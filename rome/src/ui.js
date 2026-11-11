@@ -17,9 +17,20 @@ export function createUI(ctx) {
     $('pTitle').textContent = title; $('pBody').innerHTML = html; $('panel').className = 'panel' + (opts.narrow ? ' narrow' : ''); $('pClose').hidden = !!opts.noClose;
     $('panelOv').hidden = false; $('mapscr').hidden = true; panel = opts.name || 'x';
     if (api.mode() === 'play' || api.mode() === 'ui') { api.setMode('ui'); inGame = true; }
+    setTabs(panel === 'dead' ? null : panel);
     $('pBody').scrollTop = 0;
   }
+  // one menu, four tabs: Map, Gear, Quests, System
+  function setTabs(name) {
+    const on = inGame && api.mode() === 'ui' && !!name;
+    $('tabs').hidden = !on; document.body.classList.toggle('menu', on);
+    const cur = name === 'map' || name === 'bag' || name === 'log' ? name : name === 'shop' ? '' : 'menu';
+    for (const b of $('tabs').querySelectorAll('[data-tab]')) b.classList.toggle('on', b.dataset.tab === cur);
+  }
+  for (const b of $('tabs').querySelectorAll('[data-tab]')) b.onclick = () => open(b.dataset.tab);
+  $('tabClose').onclick = () => { api.sfx.click(); close(); };
   function close() {
+    $('tabs').hidden = true; document.body.classList.remove('menu');
     $('panelOv').hidden = true; $('mapscr').hidden = true; panel = null;
     if (inGame && api.mode() === 'ui') api.setMode('play');
     if (api.mode() === 'title') title();
@@ -32,7 +43,7 @@ export function createUI(ctx) {
   function saves() { return [1, 2, 3].map((n) => api.store.get(api.slotKey(n))); }
   function title() {
     inGame = false; $('title').hidden = false; $('panelOv').hidden = true;
-    const sv = saves(), latest = sv.map((s, i) => [s, i + 1]).filter((x) => x[0] && x[0].v === 1).sort((a, b) => b[0].at - a[0].at)[0];
+    const sv = saves(), latest = sv.map((s, i) => [s, i + 1]).filter((x) => x[0] && x[0].v === 2).sort((a, b) => b[0].at - a[0].at)[0];
     $('titleBtns').innerHTML = (latest ? `<button class="btn" id="tCont">Continue</button>` : '') + `<button class="btn${latest ? ' alt' : ''}" id="tNew">New game</button>` + (latest ? `<button class="btn alt" id="tLoad">Load game</button>` : '') + `<button class="btn alt" id="tSet">Settings</button>`;
     if (latest) { $('tCont').onclick = () => { api.initAudio(); api.startGame(latest[1], latest[0]); }; $('tLoad').onclick = () => slots('load'); }
     $('tNew').onclick = () => slots('new'); $('tSet').onclick = () => settings();
@@ -42,7 +53,7 @@ export function createUI(ctx) {
   function slots(kind) {
     const sv = saves();
     const rows = sv.map((s, i) => {
-      const n = i + 1, ok = s && s.v === 1, cur = api.mode() !== 'title' && api.slotNow() === n;
+      const n = i + 1, ok = s && s.v === 2, cur = api.mode() !== 'title' && api.slotNow() === n;
       const info = ok ? `<div class="nm">Level ${s.level} · ${esc(s.chapter)}</div><div class="ds">Near ${esc(s.place || 'the road')} · ${fmtTime(s.time || 0)} played · ${new Date(s.at).toLocaleDateString()}</div>` : `<div class="nm">Empty</div><div class="ds">No journey saved here.</div>`;
       const ck = kind + n, sure = confirmKey === ck;
       let btn = '';
@@ -58,7 +69,7 @@ export function createUI(ctx) {
   // ---------- settings ----------
   function setSetting(k, v) {
     if (k === 'quality') { S.quality = v; if (PRESET[v]) Object.assign(S, PRESET[v]); api.applySettings(true); settings(); return; }
-    if (['res', 'shadows', 'bloom', 'view', 'foliage'].includes(k)) S.quality = 'custom';
+    if (['res', 'shadows', 'bloom', 'view', 'foliage', 'ao'].includes(k)) S.quality = 'custom';
     S[k] = k === 'view' ? +v : k === 'foliage' ? +v : v;
     api.applySettings(k === 'view');
     const q = $('pBody').querySelector('[data-set=quality]'); if (q) q.value = S.quality;
@@ -77,6 +88,7 @@ export function createUI(ctx) {
         ${row('Trees and rocks', '', sel('foliage', [[0.4, 'Sparse'], [0.7, 'Normal'], [1, 'Dense']]))}
         ${row('Shadows', '', chk('shadows'))}
         ${row('Glow effects', '', chk('bloom'))}
+        ${row('Ambient occlusion', 'Soft shading in corners and under roofs. Costs some speed.', chk('ao'))}
         ${row('Show frame rate', '', chk('fps'))}
       </div>
       <div class="sect">Controls</div><div class="set">
@@ -111,8 +123,11 @@ export function createUI(ctx) {
   function bag() {
     const tabs = [['weapon', 'Weapons'], ['shield', 'Shields'], ['armor', 'Armour'], ['helmet', 'Helmets']];
     const list = PL.owned.filter((id) => ITEMS[id].slot === bagTab).map((id) => { const it = ITEMS[id], on = PL.eq[it.slot] === id; return `<div class="row${on ? ' on' : ''}"><div class="tx"><div class="nm">${esc(it.name)}</div><div class="stt">${statOf(it)}</div><div class="ds">${esc(it.desc)}</div></div><button class="btn sm${on ? ' alt' : ''}" data-do="equip:${id}" ${on ? 'disabled' : ''}>${on ? 'Worn' : 'Equip'}</button></div>`; }).join('');
-    show('Gear', `<div class="tabs">${tabs.map(([k, l]) => `<button class="${k === bagTab ? 'on' : ''}" data-do="bagTab:${k}">${l}</button>`).join('')}</div>${list}
-      <div class="muted">Level ${PL.level} · ${Math.ceil(PL.hp)} / ${PL.maxHp} health · ${PL.den} denarii · ${PL.panis} bread · ${PL.pila} pila${PL.horse ? ' · horse' : ''}${PL.ship ? ' · galley' : ''}</div>`, { name: 'bag' });
+    const w = ITEMS[PL.eq.weapon], need = api.xpNeed(PL.level);
+    const sheet = `<div class="sheet"><div><b>${PL.level}</b>Level</div><div><b>${Math.ceil(PL.hp)} / ${PL.maxHp}</b>Health</div><div><b>${Math.round(w.dmg * (1 + 0.07 * (PL.level - 1)))}</b>Damage</div><div><b>${Math.round((ITEMS[PL.eq.armor].def + ITEMS[PL.eq.helmet].def) * 100)}%</b>Armour</div><div><b>${Math.round(ITEMS[PL.eq.shield].block * 100)}%</b>Block</div><div><b>${PL.den}</b>Denarii</div></div>
+      <div class="xp"><i style="width:${Math.min(100, PL.xp / need * 100).toFixed(1)}%"></i></div><div class="muted">${Math.floor(PL.xp)} / ${need} experience to level ${PL.level + 1} · ${PL.panis} bread · ${PL.pila} pila${PL.horse ? ' · horse' : ''}${PL.ship ? ' · galley' : ''}</div>
+      <div class="worn">${['weapon', 'shield', 'armor', 'helmet'].map((k) => `<button data-do="bagTab:${k}" class="${k === bagTab ? 'on' : ''}"><small>${{ weapon: 'Weapon', shield: 'Shield', armor: 'Armour', helmet: 'Helmet' }[k]}</small>${esc(ITEMS[PL.eq[k]].name)}</button>`).join('')}</div>`;
+    show('Gear', `${sheet}<div class="tabs" hidden>${tabs.map(([k, l]) => `<button class="${k === bagTab ? 'on' : ''}" data-do="bagTab:${k}">${l}</button>`).join('')}</div>${list}`, { name: 'bag' });
   }
   let shopSite = null;
   function shop(site) {
@@ -129,7 +144,8 @@ export function createUI(ctx) {
     const act = QUESTS.filter((q) => QS[q.id].state === 'active').map((q) => { const st = q.steps[QS[q.id].step]; return `<div class="row${t === q.id ? ' on' : ''}"><div class="tx"><div class="stt">${q.main ? 'MAIN STORY · ' + esc(q.date) : 'SIDE QUEST'} · suggested level ${q.lvl}</div><div class="nm">${esc(q.name)}</div><div class="ds">${esc(st.obj)}</div></div><button class="btn sm${t === q.id ? ' alt' : ''}" data-do="track:${q.id}" ${t === q.id ? 'disabled' : ''}>${t === q.id ? 'Tracked' : 'Track'}</button></div>`; }).join('');
     const av = QUESTS.filter((q) => QS[q.id].state === 'avail').map((q) => `<div class="row${t === q.id ? ' on' : ''}"><div class="tx"><div class="stt">RUMOUR · suggested level ${q.lvl}</div><div class="nm">${esc(q.name)}</div><div class="ds">Someone in ${esc(world.siteById[q.giver.at].name)} is looking for help.</div></div><button class="btn sm${t === q.id ? ' alt' : ''}" data-do="track:${q.id}" ${t === q.id ? 'disabled' : ''}>${t === q.id ? 'Tracked' : 'Track'}</button></div>`).join('');
     const done = QUESTS.filter((q) => QS[q.id].state === 'done').map((q) => `<div class="muted">✓ ${esc(q.name)}</div>`).join('');
-    show('Quests', `${act || '<div class="muted">No active quests.</div>'}${av ? '<div class="sect">Rumours</div>' + av : ''}${done ? '<div class="sect">Completed</div>' + done : ''}`, { name: 'log' });
+    const acts = api.activities().map(([l, a, b]) => `<div class="actv"><span>${l}</span><b>${a} / ${b}</b><i><em style="width:${(a / b * 100).toFixed(0)}%"></em></i></div>`).join('');
+    show('Quests', `${act || '<div class="muted">No active quests.</div>'}<div class="sect">The world</div><div class="actg">${acts}</div>${av ? '<div class="sect">Rumours</div>' + av : ''}${done ? '<div class="sect">Completed</div>' + done : ''}`, { name: 'log' });
   }
   function menu() {
     show('Aquila', `<div class="col" style="width:100%"><button class="btn" data-do="resume">Resume</button><button class="btn alt" data-do="slots:save">Save game</button><button class="btn alt" data-do="slots:load">Load game</button><button class="btn alt" data-do="settings">Settings</button><button class="btn alt" data-do="controls">Controls</button><button class="btn alt" data-do="quit">Quit to title</button></div>`, { name: 'menu', narrow: true });
@@ -168,7 +184,7 @@ export function createUI(ctx) {
   }
   function openMap() {
     if (!base) base = world.makeMap();
-    $('mapscr').hidden = false; $('panelOv').hidden = true; panel = 'map'; api.setMode('ui'); inGame = true; sel = null; $('mapCard').hidden = true;
+    $('mapscr').hidden = false; $('panelOv').hidden = true; panel = 'map'; api.setMode('ui'); inGame = true; sel = null; $('mapCard').hidden = true; setTabs('map');
     const r = Math.min(window.devicePixelRatio || 1, 2), min = Math.max(window.innerWidth * r / base.width, window.innerHeight * r / base.height);
     mv.s = min * 2.6; mv.ox = window.innerWidth * r / 2 - wx2m(PL.x) * mv.s; mv.oy = window.innerHeight * r / 2 - wz2m(PL.z) * mv.s;
     fitMap(); mapDirty = true; requestAnimationFrame(drawMap);
@@ -186,23 +202,57 @@ export function createUI(ctx) {
     c.setLineDash([]);
     const zoom = mv.s / (mapCv.width / base.width);
     c.textAlign = 'center'; c.textBaseline = 'top';
+    const lbl = (text, x, y, big, col) => { c.font = `${big ? 800 : 600} ${(big ? 12.5 : 11) * r}px Cinzel, Georgia, serif`; c.lineWidth = 3 * r; c.strokeStyle = 'rgba(239,227,200,0.9)'; c.strokeText(text, x, y); c.fillStyle = col || '#241a10'; c.fillText(text, x, y); };
+    const ring = (x, y, k) => { c.beginPath(); c.arc(x, y, k, 0, TAU); c.strokeStyle = '#d9ad4e'; c.lineWidth = 2.5 * r; c.stroke(); };
     for (const s of world.sites) {
-      const x = X(s.x), y = Y(s.z), disc = discovered.has(s.id), big = s.kind === 'urbs' || s.kind === 'city', rad = (big ? 5 : 3.6) * r;
+      const x = X(s.x), y = Y(s.z), disc = discovered.has(s.id), kn = api.known.has(s.id), big = s.kind === 'urbs' || s.kind === 'city', rad = (big ? 5 : 3.6) * r;
       if (x < -50 || y < -50 || x > mapCv.width + 50 || y > mapCv.height + 50) continue;
+      if (s.kind === 'fort') {
+        if (!kn) continue; const cl = api.done.has(s.id), k = 5 * r;
+        c.fillStyle = cl ? '#6f7a5a' : '#a3201a'; c.fillRect(x - k, y - k * 0.6, k * 2, k * 1.5); c.fillRect(x - k, y - k * 1.2, k * 0.55, k * 0.7); c.fillRect(x - k * 0.28, y - k * 1.2, k * 0.56, k * 0.7); c.fillRect(x + k * 0.45, y - k * 1.2, k * 0.55, k * 0.7);
+        c.lineWidth = 1.2 * r; c.strokeStyle = '#241a10'; c.strokeRect(x - k, y - k * 0.6, k * 2, k * 1.5);
+        if (sel === s) ring(x, y, k + 6 * r); if (zoom > 2.2) lbl(s.name, x, y + k + 3 * r, false, cl ? '#3a4a2a' : '#7a1612'); continue;
+      }
+      if (s.kind === 'tower') {
+        if (!kn) continue; const k = 4.2 * r;
+        c.fillStyle = disc ? '#d9ad4e' : '#3f6f9a'; c.fillRect(x - k * 0.5, y - k * 1.4, k, k * 2.4); c.fillRect(x - k * 0.9, y - k * 1.8, k * 1.8, k * 0.6); c.lineWidth = 1.2 * r; c.strokeStyle = '#241a10'; c.strokeRect(x - k * 0.5, y - k * 1.4, k, k * 2.4);
+        if (sel === s) ring(x, y, k + 7 * r); if (zoom > 3) lbl(s.name, x, y + k + 4 * r, false); continue;
+      }
+      if (!kn) { if (zoom < 1.6 && !big) continue; c.font = `800 ${11 * r}px Cinzel, Georgia, serif`; c.fillStyle = 'rgba(92,74,54,0.75)'; c.fillText('?', x, y - 6 * r); if (sel === s) ring(x, y, 9 * r); continue; }
       c.beginPath(); if (s.kind === 'camp' || s.kind === 'site' || s.kind === 'ruin' || s.kind === 'pyramids') { c.moveTo(x, y - rad * 1.2); c.lineTo(x + rad * 1.1, y + rad * 0.9); c.lineTo(x - rad * 1.1, y + rad * 0.9); c.closePath(); } else c.arc(x, y, rad, 0, TAU);
       c.fillStyle = disc ? '#8c1d18' : 'rgba(239,227,200,0.85)'; c.fill(); c.lineWidth = 1.5 * r; c.strokeStyle = disc ? '#fbeed0' : '#5c4a36'; c.stroke();
-      if (sel === s) { c.beginPath(); c.arc(x, y, rad + 5 * r, 0, TAU); c.strokeStyle = '#d9ad4e'; c.lineWidth = 2.5 * r; c.stroke(); }
-      if (disc && (big || zoom > 2.2)) { c.font = `${big ? 800 : 600} ${(big ? 12.5 : 11) * r}px Cinzel, Georgia, serif`; c.lineWidth = 3 * r; c.strokeStyle = 'rgba(239,227,200,0.9)'; c.strokeText(s.name, x, y + rad + 3 * r); c.fillStyle = '#241a10'; c.fillText(s.name, x, y + rad + 3 * r); }
+      if (sel === s) ring(x, y, rad + 5 * r);
+      if (big || zoom > 2.2) lbl(s.name, x, y + rad + 3 * r, big, disc ? '#241a10' : '#6a5a46');
     }
+    for (const q of api.spots()) {
+      const x = X(q.x), y = Y(q.z), k = 4.6 * r;
+      if (x < -30 || y < -30 || x > mapCv.width + 30 || y > mapCv.height + 30 || zoom < 1.3) continue;
+      c.globalAlpha = q.done ? 0.45 : 1; c.lineWidth = 1.2 * r; c.strokeStyle = '#241a10';
+      if (q.type === 'camp') { c.beginPath(); c.moveTo(x, y - k); c.lineTo(x + k, y + k * 0.8); c.lineTo(x - k, y + k * 0.8); c.closePath(); c.fillStyle = '#d07a2a'; c.fill(); c.stroke(); }
+      else if (q.type === 'wreck') { c.beginPath(); c.arc(x, y, k, 0, Math.PI); c.closePath(); c.fillStyle = '#2f6a8a'; c.fill(); c.stroke(); c.fillRect(x - 0.7 * r, y - k * 1.4, 1.4 * r, k * 1.4); }
+      else { c.beginPath(); c.arc(x, y + k * 0.25, k * 0.6, 0, TAU); c.fillStyle = '#6a4a2a'; c.fill(); c.stroke(); for (const a of [-0.9, -0.3, 0.3, 0.9]) { c.beginPath(); c.arc(x + Math.sin(a) * k * 0.95, y - Math.cos(a) * k * 0.75, k * 0.28, 0, TAU); c.fill(); } }
+      c.globalAlpha = 1; if (sel === q) ring(x, y, k + 6 * r);
+    }
+    const wy = api.way(); if (wy) { const x = X(wy.x), y = Y(wy.z); c.beginPath(); c.moveTo(x, y); c.lineTo(x - 5 * r, y - 13 * r); c.lineTo(x + 5 * r, y - 13 * r); c.closePath(); c.fillStyle = '#2f7fd0'; c.fill(); c.lineWidth = 1.5 * r; c.strokeStyle = '#fff'; c.stroke(); }
     for (const q of QUESTS) { const st = api.objectiveOf(q.id); if (!st || (QS[q.id].state === 'avail' && api.tracked() !== q.id)) continue; const p = api.posOf(st), x = X(p[0]), y = Y(p[1]), k = (api.tracked() === q.id ? 8 : 5.5) * r; c.beginPath(); c.moveTo(x, y - k); c.lineTo(x + k * 0.75, y); c.lineTo(x, y + k); c.lineTo(x - k * 0.75, y); c.closePath(); c.fillStyle = api.tracked() === q.id ? '#e8b63c' : '#4a8ab8'; c.fill(); c.lineWidth = 1.5 * r; c.strokeStyle = '#241a10'; c.stroke(); }
     const sp = api.shipPos(); if (PL.ship && sp) { const x = X(sp.x), y = Y(sp.z); c.fillStyle = '#1f4a7a'; c.beginPath(); c.moveTo(x - 7 * r, y - 2 * r); c.lineTo(x + 7 * r, y - 2 * r); c.lineTo(x + 4 * r, y + 4 * r); c.lineTo(x - 4 * r, y + 4 * r); c.closePath(); c.fill(); c.fillRect(x - 0.8 * r, y - 9 * r, 1.6 * r, 7 * r); }
     { const x = X(PL.x), y = Y(PL.z); c.save(); c.translate(x, y); c.rotate(Math.PI - PL.facing); c.beginPath(); c.moveTo(0, -9 * r); c.lineTo(6 * r, 7 * r); c.lineTo(0, 3.5 * r); c.lineTo(-6 * r, 7 * r); c.closePath(); c.fillStyle = '#fff'; c.fill(); c.lineWidth = 2 * r; c.strokeStyle = '#8c1d18'; c.stroke(); c.restore(); }
+    { const L = [['#8c1d18', 'Discovered place'], ['#a3201a', 'Enemy outpost'], ['#3f6f9a', 'Watchtower'], ['#d07a2a', 'Bandit camp'], ['#2f6a8a', 'Sunken wreck'], ['#6a4a2a', 'Beast hunt'], ['#e8b63c', 'Quest'], ['#2f7fd0', 'Your marker']];
+      const lx = 14 * r, ly = mapCv.height - (L.length * 17 + 22) * r; c.fillStyle = 'rgba(239,227,200,0.86)'; c.fillRect(lx - 6 * r, ly - 8 * r, 150 * r, (L.length * 17 + 10) * r); c.textAlign = 'left'; c.textBaseline = 'middle'; c.font = `600 ${11.5 * r}px 'Alegreya Sans', sans-serif`;
+      L.forEach(([col, t], i) => { c.fillStyle = col; c.fillRect(lx, ly + i * 17 * r - 4 * r, 9 * r, 9 * r); c.fillStyle = '#241a10'; c.fillText(t, lx + 15 * r, ly + i * 17 * r + 1 * r); }); }
   }
   function mapCard() {
-    const s = sel, d = discovered.has(s.id), dist = Math.round(Math.hypot(s.x - PL.x, s.z - PL.z) / MILE);
+    const s = sel, spot = !s.id, dist = Math.round(Math.hypot(s.x - PL.x, s.z - PL.z) / MILE);
+    const d = !spot && discovered.has(s.id), kn = spot || api.known.has(s.id), fort = s.kind === 'fort', cl = fort && api.done.has(s.id);
+    const name = spot ? s.name : kn ? s.name : 'Unknown place';
+    const sub = spot ? `LEVEL ${s.lvl}${s.done ? ' · DONE' : ''}` : `${esc(s.region.toUpperCase())}${fort ? ` · LEVEL ${s.lvl}${cl ? ' · CLEARED' : ''}` : ''}`;
+    const text = spot ? { camp: 'A bandit camp. Deal with the robbers and their strongbox is yours.', wreck: 'A ship lies on the bottom here, her mast still above water. Swim out and dive for what she carried.', hunt: 'A dangerous beast has its lair here. The pelt will fetch a good price.' }[s.type]
+      : !kn ? 'Travel there on foot, by horse or by sea to learn what it is, or survey the land from a watchtower.' : d || fort || s.kind === 'tower' ? s.desc : s.desc + ' You have heard of this place but not been there yet.';
+    const mine = api.way() && api.way().x === s.x && api.way().z === s.z;
     $('mapCard').hidden = false;
-    $('mapCard').innerHTML = `<h3>${d ? esc(s.name) : 'Undiscovered place'}<small>${esc(s.region.toUpperCase())} · ${dist} ROMAN MILES</small></h3><p>${d ? esc(s.desc) : 'Travel there on foot, by horse or by sea to learn what it is. Once found, you can return at any time.'}</p>${d ? `<button class="btn sm" id="mcGo">Fast travel</button>` : ''}`;
+    $('mapCard').innerHTML = `<h3>${esc(name)}<small>${sub} · ${dist} ROMAN MILES</small></h3><p>${esc(text)}</p><div class="mcb">${d ? '<button class="btn sm" id="mcGo">Fast travel</button>' : ''}<button class="btn sm alt" id="mcWay">${mine ? 'Remove marker' : 'Mark on compass'}</button></div>`;
     if (d) $('mcGo').onclick = () => { api.sfx.click(); api.fastTravel(s.id); };
+    $('mcWay').onclick = () => { api.sfx.click(); api.setWay(mine ? null : { x: s.x, z: s.z, name }); mapCard(); mapDirty = true; };
   }
   mapCv.addEventListener('pointerdown', (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } try { mapCv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } });
   mapCv.addEventListener('pointermove', (e) => {
@@ -214,14 +264,14 @@ export function createUI(ctx) {
     if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); pinch = 0;
     if (moved < 8 && e.type === 'pointerup') {
       const r = Math.min(window.devicePixelRatio || 1, 2), px = e.clientX * r, py = e.clientY * r; let best = null, bd = 26 * r;
-      for (const s of world.sites) { const d = Math.hypot(wx2m(s.x) * mv.s + mv.ox - px, wz2m(s.z) * mv.s + mv.oy - py); if (d < bd) { bd = d; best = s; } }
+      for (const s of api.spots()) { const d = Math.hypot(wx2m(s.x) * mv.s + mv.ox - px, wz2m(s.z) * mv.s + mv.oy - py); if (d < bd) { bd = d; best = s; } }
+      for (const s of world.sites) { if ((s.kind === 'fort' || s.kind === 'tower') && !api.known.has(s.id)) continue; const d = Math.hypot(wx2m(s.x) * mv.s + mv.ox - px, wz2m(s.z) * mv.s + mv.oy - py); if (d < bd) { bd = d; best = s; } }
       sel = best; if (best) { api.sfx.click(); mapCard(); } else $('mapCard').hidden = true; mapDirty = true;
     }
   };
   mapCv.addEventListener('pointerup', mapUp); mapCv.addEventListener('pointercancel', mapUp);
   function zoomAt(cx, cy, k) { const r = Math.min(window.devicePixelRatio || 1, 2), px = cx * r, py = cy * r, s0 = mv.s; mv.s *= k; fitMap(); const kk = mv.s / s0; mv.ox = px - (px - mv.ox) * kk; mv.oy = py - (py - mv.oy) * kk; fitMap(); mapDirty = true; }
   mapCv.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(-clamp(e.deltaY, -60, 60) * 0.004)); }, { passive: false });
-  $('mapClose').onclick = () => { api.sfx.click(); close(); };
   window.addEventListener('resize', () => { if (base && !$('mapscr').hidden) { fitMap(); mapDirty = true; } });
 
   function open(name) { api.sfx.click(); if (name === 'map') openMap(); else if (name === 'bag') bag(); else if (name === 'log') log(); else menu(); }
@@ -246,6 +296,8 @@ export function createUI(ctx) {
     cc.fillStyle = 'rgba(18,13,8,0.55)'; cc.fillRect(0, 12, w, 28);
     for (let i = 0; i < 24; i++) { const d = rel(i * TAU / 24); if (Math.abs(d) > 1.5) continue; const x = w / 2 + d / 1.5 * (w / 2), card = i % 6 === 0; cc.fillStyle = card ? '#f6e2a8' : 'rgba(239,227,200,0.55)'; if (card) { cc.font = '800 24px Cinzel, Georgia, serif'; cc.fillText('NESW'[i / 6], x, 27); } else cc.fillRect(x - 1, i % 3 === 0 ? 18 : 22, 2, i % 3 === 0 ? 16 : 8); }
     let obj = '';
+    const wy = api.way();
+    if (wy) { const d = rel(Math.atan2(wy.x - PL.x, -(wy.z - PL.z))), x = w / 2 + clamp(d / 1.5, -1, 1) * (w / 2 - 14); cc.beginPath(); cc.moveTo(x, 44); cc.lineTo(x - 10, 10); cc.lineTo(x + 10, 10); cc.closePath(); cc.fillStyle = '#3f8fe0'; cc.fill(); cc.lineWidth = 3; cc.strokeStyle = '#fff'; cc.stroke(); if (Math.hypot(wy.x - PL.x, wy.z - PL.z) < 18) api.setWay(null); }
     if (tt) {
       const d = rel(Math.atan2(tt.x - PL.x, -(tt.z - PL.z))), x = w / 2 + clamp(d / 1.5, -1, 1) * (w / 2 - 14), dist = Math.hypot(tt.x - PL.x, tt.z - PL.z);
       cc.beginPath(); cc.moveTo(x, 4); cc.lineTo(x + 12, 26); cc.lineTo(x, 48); cc.lineTo(x - 12, 26); cc.closePath(); cc.fillStyle = '#e8b63c'; cc.fill(); cc.lineWidth = 3; cc.strokeStyle = '#241a10'; cc.stroke();

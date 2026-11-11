@@ -4,10 +4,11 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { createWorld, part, T, mergeGeometries, litMat, toX, toZ, CS, XMIN, XMAX, ZMIN, ZMAX } from './world.js';
-import { buildCity, collideCity, surfaceAt, inside, STEP } from './city.js';
+import { buildCity, collideCity, surfaceAt, inside, STEP, gableRoof } from './city.js';
 import { makeHuman, poseHuman, addGhost, setFlash, makeHorse, poseHorse, makeShip, poseShip, charMat } from './models.js';
-import { PLACES, ITEMS, STOCK, PRICE, NPCS, FOES, WILD, CAMPS, QUESTS } from './data.js';
+import { PLACES, ITEMS, STOCK, PRICE, NPCS, FOES, WILD, CAMPS, QUESTS, WRECKS, HUNTS } from './data.js';
 import { createFx } from '../../src/fx.js';
 import { createInput } from './input.js';
 import { initAudio, sfx, musicTick, setVolumes, suspendAudio } from './audio.js';
@@ -17,9 +18,9 @@ import { createUI } from './ui.js';
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
-const SET_KEY = 'aquila-settings-v2', slotKey = (n) => 'aquila-slot-' + n;
+const SET_KEY = 'aquila-settings-v3', slotKey = (n) => 'aquila2-slot-' + n;
 const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } } };
-const PRESET = { low: { res: 0.7, shadows: false, bloom: false, view: 2, foliage: 0.4 }, med: { res: 0.85, shadows: true, bloom: true, view: 3, foliage: 0.7 }, high: { res: 1, shadows: true, bloom: true, view: 4, foliage: 1 } };
+const PRESET = { low: { res: 0.7, shadows: false, bloom: false, view: 2, foliage: 0.4, ao: false }, med: { res: 0.85, shadows: true, bloom: true, view: 3, foliage: 0.7, ao: false }, high: { res: 1, shadows: true, bloom: true, view: 4, foliage: 1, ao: true } };
 const S = Object.assign({ quality: isTouch ? 'med' : 'high', ...PRESET[isTouch ? 'med' : 'high'], autoRes: true, look: isTouch ? 'drag' : 'move', sens: 1, invertY: false, autoCam: true, master: 0.8, music: 0.5, sfx: 0.9, difficulty: 'normal', hud: 1, fps: false, numbers: true }, store.get(SET_KEY) || {});
 const DIFF = { easy: { hp: 0.8, dmg: 0.6 }, normal: { hp: 1, dmg: 1 }, hard: { hp: 1.25, dmg: 1.4 } };
 const MILE = 3.39; // world units per Roman mile
@@ -38,6 +39,9 @@ function boot() {
   const input = createInput(canvas);
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true }));
   composer.addPass(new RenderPass(scene, camera));
+  // ambient occlusion: soft contact shadows in corners, under eaves and around feet
+  const gtao = new GTAOPass(scene, camera, 256, 256, undefined, { radius: 1.5, distanceExponent: 1.5, thickness: 1.3, scale: 1.3, samples: 12, distanceFallOff: 1, screenSpaceRadius: false }, { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, radiusExponent: 1.4, rings: 2, samples: 12 });
+  composer.addPass(gtao);
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.7, 0.95);
   composer.addPass(bloom); composer.addPass(new OutputPass());
   // final colour grade: a little more contrast and saturation, warm highlights, cool shadows, soft vignette
@@ -63,7 +67,7 @@ function boot() {
   function applySettings(rebuild) {
     wopts.viewChunks = S.view; wopts.shadows = S.shadows; wopts.fog = 1.87 / (0.86 * S.view * CS);
     if (rebuild || wopts.foliage !== S.foliage) { wopts.foliage = S.foliage; world.rebuildAll(); }
-    bloom.enabled = S.bloom; setVolumes(S.master, S.music, S.sfx); input.setFree(S.look === 'move' && !isTouch);
+    bloom.enabled = S.bloom; gtao.enabled = !!S.ao; setVolumes(S.master, S.music, S.sfx); input.setFree(S.look === 'move' && !isTouch);
     document.documentElement.style.setProperty('--hs', S.hud); $('fps').hidden = !S.fps;
     world.applySky(); resize(); store.set(SET_KEY, S);
   }
@@ -81,7 +85,8 @@ function boot() {
   const camTarget = new THREE.Vector3();
   const QS = {};                 // quest id -> { state: 'locked' | 'avail' | 'active' | 'done', step }
   let tracked = 'm1';
-  const discovered = new Set(), campsDone = new Set();
+  const discovered = new Set(), campsDone = new Set(), known = new Set(), done = new Set();   // known: seen on the map; done: cleared forts / wrecks / hunts
+  let way = null;
   const foes = [], npcs = [], civs = [], shots = [];
   const G = { bot: false, god: false };
   const QBY = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
@@ -132,11 +137,12 @@ function boot() {
     nearObs = nearSite && bd < nearSite.r + 80 && cities.get(nearSite.id) ? cities.get(nearSite.id).obs : null;
     if (nearSite && bd > nearSite.r + 80) nearSite = null;
     allObs = nearObs;
+    if (PL.ship && PL.shipPos && PL.mode !== 'ship' && Math.hypot(PL.shipPos.x - PL.x, PL.shipPos.z - PL.z) < 90) { const sp = PL.shipPos, so = [{ x: sp.x, z: sp.z, hw: 1.45, hd: 7.6, c: Math.cos(sp.rot), s: Math.sin(sp.rot), h: 0, top: 1.28, deck: 1 }]; allObs = allObs ? allObs.concat(so) : so; }
     for (const c of camps) if (c.obs && Math.hypot(c.x - PL.x, c.z - PL.z) < 140) allObs = allObs ? allObs.concat(c.obs) : c.obs;
   }
   const _o = { x: 0, z: 0 };
   // can an entity at height y stand at (x, z)? Solid ground, or a pier / roof / wall top within reach
-  function standOk(x, z, y) { if (!world.inBounds(x, z)) return false; const t = world.getHeight(x, z); return t > 0.32 || surfaceAt(allObs, x, z, y, t) > t + 0.01; }
+  function standOk(x, z, y, swimmer) { if (!world.inBounds(x, z)) return false; if (swimmer) return true; const t = world.getHeight(x, z); return t > 0.32 || surfaceAt(allObs, x, z, y, t) > t + 0.01; }
   // move a circle with collision; returns true if it moved freely. b.hit is the wall it ran into, if any
   function moveBody(b, dx, dz, r, water) {
     _o.x = b.x + dx; _o.z = b.z + dz; b.hit = null;
@@ -149,14 +155,20 @@ function boot() {
     const y = b.y ?? 0;
     if (y < world.getHeight(b.x, b.z) + 2.5) world.collideProps(_o, r);
     if (allObs) { const h = collideCity(_o, r, allObs, y); if (h) b.hit = { ob: h.ob, nx: h.nx, nz: h.nz }; }
-    if (standOk(_o.x, _o.z, y)) { b.x = _o.x; b.z = _o.z; return !b.hit; }
-    if (standOk(_o.x, b.z, y)) { b.x = _o.x; return false; }
-    if (standOk(b.x, _o.z, y)) { b.z = _o.z; return false; }
+    const sw = b.canSwim;
+    if (standOk(_o.x, _o.z, y, sw)) { b.x = _o.x; b.z = _o.z; return !b.hit; }
+    if (standOk(_o.x, b.z, y, sw)) { b.x = _o.x; return false; }
+    if (standOk(b.x, _o.z, y, sw)) { b.z = _o.z; return false; }
     return false;
   }
   // gravity and footing: step up small ledges at once, fall off edges
   function settle(b, dt) {
     const g = surfaceAt(allObs, b.x, b.z, b.y, world.getHeight(b.x, b.z));
+    if (b.canSwim && g < -0.95) {   // deep water: float with head and shoulders out
+      if (b.y > -0.95 && !b.swim) { b.vy = (b.vy || 0) - 34 * dt; b.y += b.vy * dt; b.air = true; if (b.y <= -1.02) { fx.burst(b.x, 0.1, b.z, 26, 6, 0.75, 0.85, 0.9, { life: 0.7, size: 0.7, up: 0.8 }); sfx.splash(); } else return; }
+      b.y = -1.02; b.vy = 0; b.air = false; b.swim = true; return;
+    }
+    b.swim = false;
     if (b.y > g + 0.06 || b.vy > 0) { b.vy = (b.vy || 0) - 34 * dt; b.y += b.vy * dt; b.air = true; if (b.y <= g && b.vy <= 0) { b.y = g; b.vy = 0; b.air = false; } }
     else { b.y = g; b.vy = 0; b.air = false; }
   }
@@ -190,7 +202,11 @@ function boot() {
   const shotGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 4); shotGeo.rotateX(Math.PI / 2);
   const shotMesh = new THREE.InstancedMesh(shotGeo, new THREE.MeshBasicMaterial({ color: 0x3a2a1a }), 40); shotMesh.count = 0; shotMesh.frustumCulled = false; scene.add(shotMesh);
   const chestGeo = mergeGeometries([part(new THREE.BoxGeometry(1.5, 0.9, 1.0), 0x7a4a25, T(0, 0.45, 0)), part(new THREE.BoxGeometry(1.56, 0.16, 1.06), 0xd9ad4e, T(0, 0.9, 0)), part(new THREE.BoxGeometry(0.2, 0.94, 1.06), 0xd9ad4e, T(-0.5, 0.45, 0)), part(new THREE.BoxGeometry(0.2, 0.94, 1.06), 0xd9ad4e, T(0.5, 0.45, 0))]);
-  const tentGeo = mergeGeometries([part(new THREE.CylinderGeometry(1, 1, 1, 3), 0x7a5a3a, T(-4, 1.05, -3, 2.2, 4.2, 1.4, Math.PI / 2, 0.5, 0)), part(new THREE.CylinderGeometry(1, 1, 1, 3), 0x6a4a34, T(4.5, 1.05, -2, 2.2, 4.2, 1.4, Math.PI / 2, -0.6, 0)), part(new THREE.CylinderGeometry(0.9, 1.1, 0.3, 7), 0x5a5048, T(0, 0.15, 3)), part(new THREE.ConeGeometry(0.5, 1.1, 5), [3.2, 1.4, 0.3], T(0, 0.8, 3))]);
+  const tentGeo = mergeGeometries([part(gableRoof(3.2, 4.4, 2.1), 0x7a5a3a, T(-4, 0, -3, 1, 1, 1, 0, 0.5, 0)), part(gableRoof(3.2, 4.4, 2.1), 0x6a4a34, T(4.5, 0, -2, 1, 1, 1, 0, -0.6, 0)), part(new THREE.CylinderGeometry(0.9, 1.1, 0.3, 7), 0x5a5048, T(0, 0.15, 3)), part(new THREE.ConeGeometry(0.5, 1.1, 5), [3.2, 1.4, 0.3], T(0, 0.8, 3))]);
+  const wreckGeo = mergeGeometries([part(new THREE.CylinderGeometry(0.16, 0.2, 7, 6), 0x4a3524, T(0, 1.2, 0, 1, 1, 1, 0.25, 0, 0.3)), part(new THREE.CylinderGeometry(0.08, 0.08, 3.4, 5), 0x4a3524, T(0.7, 3.4, 0.6, 1, 1, 1, 0.25, 0, 1.87)), part(new THREE.BoxGeometry(2.2, 1.6, 0.05), 0xb8ad94, T(0.7, 2.5, 0.62, 1, 1, 1, 0.25, 0, 0.3)), part(new THREE.BoxGeometry(2.4, 1.2, 6), 0x5a4028, T(-1.2, -0.9, -1, 1, 1, 1, 0.5, 0.3, 0.6))]);
+  const wrecks = WRECKS.map(([lat, lon, lvl], i) => ({ i, key: 'W' + i, lvl, lat, lon, x: 0, z: 0, ready: false, mesh: null }));
+  const hunts = HUNTS.map(([lat, lon, lvl, foe, name, pack], i) => ({ i, key: 'H' + i, lvl, lat, lon, foe, name, pack, x: 0, z: 0, ready: false, spawned: false, boss: null, told: false }));
+  const forts = world.sites.filter((q) => q.kind === 'fort'), towers = world.sites.filter((q) => q.kind === 'tower');
   const camps = CAMPS.map(([lat, lon, lvl, reward, den], i) => ({ i, lvl, reward, den, x: 0, z: 0, ready: false, spawned: false, mesh: null, chest: null, lat, lon }));
 
   // =====================================================================
@@ -277,7 +293,7 @@ function boot() {
       if (dist > 300 || (n.stale && dist > 70)) { n.h.g.removeFromParent(); npcs.splice(i, 1); continue; }
       if (dist < 9) n.facing = angleLerp(n.facing, Math.atan2(PL.x - n.x, PL.z - n.z), 1 - Math.exp(-5 * dt));
       n.h.g.position.set(n.x, n.y, n.z); n.h.g.rotation.y = n.facing;
-      poseHuman(n.h, { mv: 0, ph: rt * 1.2 + i, atk: -1, kind: 0, block: 0, dead: 0 });
+      poseHuman(n.h, { t: rt + i * 1.7, talk: dist < 5 && n.d.kind !== 'shop', mv: 0, ph: 0, atk: -1, kind: 0, block: 0, dead: 0 });
       n.mark.position.y = 2.5 + Math.sin(rt * 3 + i) * 0.12; n.mark.rotation.y = rt * 2;
     }
     // townsfolk
@@ -300,7 +316,7 @@ function boot() {
         else { const ox = c.x, oz = c.z; moveBody(c, (dx / d) * 1.7 * dt, (dz / d) * 1.7 * dt, 0.45); if (Math.hypot(c.x - ox, c.z - oz) < 0.6 * 1.7 * dt) { c.stuck = (c.stuck || 0) + dt; if (c.stuck > 0.6) { c.wait = 0.5; c.stuck = 0; } } c.facing = angleLerp(c.facing, Math.atan2(dx, dz), 1 - Math.exp(-6 * dt)); mv = 0.55; c.ph += dt * 6; }
       }
       settle(c, dt || 0.016); c.h.g.position.set(c.x, c.y, c.z); c.h.g.rotation.y = c.facing;
-      poseHuman(c.h, { mv, ph: c.ph, atk: -1, kind: 0, block: 0, dead: 0 });
+      poseHuman(c.h, { t: rt + i * 2.3, mv, ph: c.ph, atk: -1, kind: 0, block: 0, dead: 0 });
     }
   }
 
@@ -309,16 +325,17 @@ function boot() {
   // =====================================================================
   function spawnFoe(type, x, z, lvl, group) {
     const def = FOES[type], d = DIFF[S.difficulty];
-    const model = def.beast ? makeHorse({ wolf: 1, coat: 0x6a6a70, dark: 0x3a3a40 }) : makeHuman(def.look);
+    const model = def.beast ? makeHorse({ wolf: 1, coat: def.coat ?? 0x6a6a70, dark: def.dark ?? 0x3a3a40, size: def.size, wide: def.wide }) : makeHuman(def.look);
+    const bs = def.beast ? (def.size ?? 0.5) / 0.5 : 1;
     scene.add(model.g);
     const wp = def.look && def.look.weapon;
     const f = {
-      type, def, lvl, group, model, x, z, y: world.getHeight(x, z), facing: Math.random() * TAU, r: def.beast ? 0.6 : 0.5,
+      type, def, lvl, group, model, x, z, y: world.getHeight(x, z), facing: Math.random() * TAU, r: def.beast ? 0.6 * bs : 0.5,
       hp: def.hp * (1 + 0.14 * (lvl - 1)) * d.hp, dmg: def.dmg * (1 + 0.09 * (lvl - 1)) * d.dmg, st: 'chase', t: 0, cd: 0.6 + Math.random() * 1.5, ph: Math.random() * 6, mv: 0,
-      reach: def.beast ? 2.0 : wp === 'hasta' ? 3.3 : wp === 'gallic' ? 3.0 : 2.5, strafe: Math.random() < 0.5 ? 1 : -1, flash: 0, dead: 0, kx: 0, kz: 0, atkKind: 0, aware: group !== 'wild' && group !== 'camp', hx: x, hz: z, pt: Math.random() * 3, sus: 0, alertT: 0, vy: 0, cl: null,
+      reach: def.beast ? 1.6 + 0.5 * bs : wp === 'hasta' ? 3.3 : wp === 'gallic' ? 3.0 : 2.5, strafe: Math.random() < 0.5 ? 1 : -1, flash: 0, dead: 0, kx: 0, kz: 0, atkKind: 0, aware: group !== 'wild' && group !== 'camp', hx: x, hz: z, pt: Math.random() * 3, sus: 0, alertT: 0, vy: 0, cl: null,
     };
     f.maxHp = f.hp; foes.push(f);
-    f.mark = new THREE.Mesh(markerGeo, susMat); f.mark.position.y = def.beast ? 4.2 : 2.5; f.mark.visible = false; model.g.add(f.mark);
+    f.mark = new THREE.Mesh(markerGeo, susMat); f.mark.position.y = def.beast ? 3.6 : 2.5; f.mark.visible = false; model.g.add(f.mark);
     return f;
   }
   function spawnGroup(list, x, z, lvl, group) {
@@ -458,7 +475,7 @@ function boot() {
         let atk = -1;
         if (f.st === 'windup') atk = (1 - f.t / f.dur) * 0.35; else if (f.st === 'strike') atk = 0.35 + (1 - f.t / 0.16) * 0.4; else if (f.st === 'recover') atk = Math.min(1, 0.75 + (1 - f.t / 0.55) * 0.25);
         if (f.st === 'recover' && f.t < 0.2) atk = -1;
-        poseHuman(f.model, { climb: !!f.cl, mv: f.mv, ph: f.ph, atk, kind: f.atkKind, ranged: f.def.ranged, block: f.def.guard && f.st === 'chase' ? 0.5 : 0, dead: f.dead, stag: f.st === 'stag' ? 1 : 0 });
+        poseHuman(f.model, { t: rt + f.ph, climb: !!f.cl, air: f.air && !f.cl, mv: f.mv, ph: f.ph, atk, kind: f.atkKind, ranged: f.def.ranged, block: f.def.guard && f.aware && f.st === 'chase' ? 0.6 : 0, dead: f.dead, stag: f.st === 'stag' ? 1 : 0 });
       }
     }
   }
@@ -514,7 +531,7 @@ function boot() {
         const t = new THREE.Mesh(tentGeo, charMat); t.castShadow = true; c.chest = new THREE.Mesh(chestGeo, charMat); c.chest.position.set(0, 0, -1); c.chest.castShadow = true;
         c.mesh.add(t, c.chest); c.mesh.position.set(c.x, y, c.z); scene.add(c.mesh);
         const bx = (dx, dz, hw, hd, rot, h) => ({ x: c.x + dx, z: c.z + dz, hw, hd, c: Math.cos(rot), s: Math.sin(rot), h, top: y + h });
-        c.obs = [bx(-4, -3, 1.9, 2.1, 0.5, 2.3), bx(4.5, -2, 1.9, 2.1, -0.6, 2.3), bx(0, -1, 0.78, 0.53, 0, 0.9), { x: c.x, z: c.z + 3, r: 1.0, h: 0.5, top: y + 0.5, stand: 1 }];
+        c.obs = [bx(-4, -3, 1.1, 2.1, 0.5, 1.7), bx(4.5, -2, 1.1, 2.1, -0.6, 1.7), bx(0, -1, 0.78, 0.53, 0, 0.9), { x: c.x, z: c.z + 3, r: 1.0, h: 0.5, top: y + 0.5, stand: 1 }];
       } else if (d > 320 && c.mesh) { scene.remove(c.mesh); c.mesh = null; c.obs = null; c.spawned = false; removeGroup('camp' + c.i); }
       if (c.mesh) c.chest.rotation.z = done ? 0.5 : 0;
       if (d < 90 && !done && !c.spawned && PL.mode !== 'ship') { c.spawned = true; const pool = WILD[world.regionAt(c.x, c.z)].filter((t) => t !== 'lupus'); const list = spawnGroup([[pool[0], 3], [pool[pool.length - 1], 1]], c.x, c.z, c.lvl, 'camp' + c.i); for (const f of list) f.group = 'camp' + c.i; }
@@ -524,16 +541,56 @@ function boot() {
     if (wildT <= 0) {
       wildT = 28 + Math.random() * 30;
       const lvl = Math.max(1, PL.level - 1 + ((Math.random() * 3) | 0) - 1);
-      if (PL.mode !== 'ship' && !nearSite && !killGroup && foes.length < 3 && !world.sites.some((s) => Math.hypot(s.x - PL.x, s.z - PL.z) < s.r + 130)) {
+      if (PL.mode !== 'ship' && !PL.swim && !nearSite && !killGroup && foes.length < 3 && !world.sites.some((s) => Math.hypot(s.x - PL.x, s.z - PL.z) < s.r + 130)) {
         const pool = WILD[world.regionAt(PL.x, PL.z)] || ['latro'], type = pool[(Math.random() * pool.length) | 0];
         const a = PL.facing + (Math.random() - 0.5) * 1.6, p = [PL.x + Math.sin(a) * 52, PL.z + Math.cos(a) * 52];
         if (world.walkable(p[0], p[1])) { const list = spawnGroup([[type, type === 'lupus' ? 3 : 2 + ((Math.random() * 2) | 0)]], p[0], p[1], lvl, 'wild'); for (const f of list) f.aware = false; }
       }
     }
-    // discovery
-    for (const s of world.sites) if (!discovered.has(s.id) && Math.hypot(s.x - PL.x, s.z - PL.z) < s.r + 28) {
-      discovered.add(s.id); sfx.discover(); ui.toast(s.name, 'Discovered · fast travel unlocked', 3.4); gainXp(25); save(true);
+    // enemy outposts
+    for (const s of forts) {
+      const d = Math.hypot(s.x - PL.x, s.z - PL.z), cleared = done.has(s.id);
+      if (s.chestMesh == null && cities.get(s.id) && s.chest) { s.chestMesh = new THREE.Mesh(chestGeo, charMat); s.chestMesh.castShadow = true; s.chestMesh.position.set(s.chest.x, world.siteH(s), s.chest.z); scene.add(s.chestMesh); }
+      if (s.chestMesh) s.chestMesh.rotation.z = cleared ? 0.5 : 0;
+      if (d < 125 && !cleared && !s.spawned && PL.mode !== 'ship' && cities.get(s.id)) {
+        s.spawned = true; const key = 'fort:' + s.id, lv = s.lvl, rg = FOES[s.foe].ranged ? 'latro' : s.foe, sh = s.foe === 'numida' ? 'numida' : 'sagittarius';
+        s.cap = spawnFoe('praefectus', s.x + 1, s.z - 3.5, lv + 1, key);
+        s.guards = [s.cap];
+        for (const [ox, oz, ty] of [[-13, 9, rg], [13, 9, rg], [-11, -13, rg], [12, -12, rg], [-17, 1, sh], [17, -1, sh], [2, 15, rg]]) s.guards.push(spawnFoe(ty, s.x + ox, s.z + oz, lv, key));
+        for (const f of s.guards) { f.aware = false; f.hx = f.x; f.hz = f.z; }
+      } else if (d > 320 && s.spawned) { removeGroup('fort:' + s.id); s.spawned = false; }
+      if (d < s.r + 46 && !cleared && !s.told) { s.told = true; ui.toast(s.name, 'Enemy outpost · kill the captain and take the strongbox', 4.2); }
+      if (d > 200) s.told = false;
     }
+    // wrecks and hunts
+    for (const w of wrecks) {
+      if (!w.ready) { w.ready = true; let px = toX(w.lon), pz = toZ(w.lat), ok = false; for (let r = 0; r < 500 && !ok; r += 10) for (let a = 0; a < TAU; a += 0.5) { const x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r, f = world.landF(x, z); if (world.inBounds(x, z) && f < 0.4 && f > 0.14) { px = x; pz = z; ok = true; break; } } w.x = px; w.z = pz; }
+      const d = Math.hypot(w.x - PL.x, w.z - PL.z);
+      if (d < 420 && !w.mesh) { w.mesh = new THREE.Mesh(wreckGeo, charMat); w.mesh.position.set(w.x, 0, w.z); w.mesh.rotation.y = w.i * 1.3; scene.add(w.mesh); }
+      else if (d > 520 && w.mesh) { scene.remove(w.mesh); w.mesh = null; }
+      if (d < 240 && !known.has(w.key)) { known.add(w.key); ui.note('A wreck lies offshore. Swim out and dive for it.'); }
+    }
+    for (const h of hunts) {
+      if (!h.ready) { const p = snapWalk(toX(h.lon), toZ(h.lat)); h.x = p[0]; h.z = p[1]; h.ready = true; }
+      const d = Math.hypot(h.x - PL.x, h.z - PL.z), fin = done.has(h.key);
+      if (d < 260 && !known.has(h.key)) known.add(h.key);
+      if (d < 95 && !fin && !h.spawned && PL.mode !== 'ship') {
+        h.spawned = true; h.boss = spawnFoe(h.foe, h.x, h.z, h.lvl, 'hunt' + h.i); h.boss.aware = false;
+        if (h.pack) for (const f of spawnGroup([[h.pack, 3]], h.x, h.z, h.lvl, 'hunt' + h.i)) f.aware = false;
+      } else if (d > 300 && h.spawned && !fin) { removeGroup('hunt' + h.i); h.spawned = false; h.boss = null; h.told = false; }
+      if (h.spawned && !fin && d < 70 && !h.told) { h.told = true; ui.toast(h.name, 'Beast hunt', 3.4); }
+      if (h.boss && h.boss.dead && !fin) { done.add(h.key); const r = 110 + 45 * h.lvl; PL.den += r; sfx.quest(); ui.toast('Hunt complete', h.name, 3.4); ui.note(`The pelt sells for ${r} denarii`); save(true); }
+    }
+    for (const c of camps) if (c.ready && !known.has('C' + c.i) && Math.hypot(c.x - PL.x, c.z - PL.z) < 240) known.add('C' + c.i);
+    // discovery
+    for (const s of world.sites) if (!known.has(s.id) && Math.hypot(s.x - PL.x, s.z - PL.z) < s.r + (s.kind === 'fort' || s.kind === 'tower' ? 90 : 28)) {
+      known.add(s.id);
+      if (s.kind === 'fort') { sfx.alert(); ui.note(`Enemy outpost sighted: ${s.name}`); }
+      else if (s.kind === 'tower') { ui.note(`Watchtower sighted: ${s.name}. Climb it to survey the land.`); }
+      else { discovered.add(s.id); sfx.discover(); ui.toast(s.name, 'Discovered · fast travel unlocked', 3.4); gainXp(25); }
+      save(true);
+    }
+    for (const s of world.sites) if (known.has(s.id) && !discovered.has(s.id) && s.kind !== 'fort' && s.kind !== 'tower' && Math.hypot(s.x - PL.x, s.z - PL.z) < s.r + 28) { discovered.add(s.id); sfx.discover(); ui.toast(s.name, 'Discovered · fast travel unlocked', 3.4); gainXp(25); save(true); }
   }
 
   // =====================================================================
@@ -549,7 +606,7 @@ function boot() {
   }
   function fade(fn) { const f = $('fade'); f.classList.add('on'); setTimeout(() => { fn(); world.streamChunks(PL.x, PL.z, 12); updateCities(); camTarget.set(PL.x, PL.y + 1.5, PL.z); setTimeout(() => f.classList.remove('on'), 120); }, 380); }
   function placePlayer(x, z) { const p = snapWalk(x, z); PL.x = p[0]; PL.z = p[1]; PL.y = world.getHeight(PL.x, PL.z); PL.vy = 0; PL.climb = null; PL.sneak = false; PL.atk = null; horse.g.visible = false; horseAt = null; }
-  function entryOf(s) { const o = s.kind === 'pyramids' ? [14, 26] : s.kind === 'oppidum' ? [3, 5] : [2.5, 5]; return [s.x + o[0], s.z + o[1]]; }
+  function entryOf(s) { const o = s.kind === 'pyramids' ? [14, 26] : s.kind === 'oppidum' ? [3, 5] : s.kind === 'tower' ? [0, 6] : [2.5, 5]; return [s.x + o[0], s.z + o[1]]; }
   function fastTravel(id) {
     const s = world.siteById[id];
     if (!discovered.has(id)) return;
@@ -577,6 +634,29 @@ function boot() {
       if (landSpot) prompt = { text: 'Go ashore', fn: () => disembark(landSpot[0], landSpot[1]) };
       return;
     }
+    if (PL.swim) {
+      for (const w of wrecks) if (!done.has(w.key) && Math.hypot(w.x - PL.x, w.z - PL.z) < 7.5) { prompt = { text: 'Dive to the wreck', fn: () => {
+        done.add(w.key); const r = 90 + 38 * w.lvl; PL.den += r; sfx.coin(); sfx.splash(); gainXp(70 + 12 * w.lvl); ui.toast('Wreck plundered', `+${r} denarii`, 3);
+        const pool = (STOCK[world.regionAt(w.x, w.z)] || STOCK.Italia).filter((id) => !PL.owned.includes(id)); if (pool.length && Math.random() < 0.45) { const id = pool[(Math.random() * pool.length) | 0]; PL.owned.push(id); ui.note(`Salvaged: ${ITEMS[id].name}`); autoEquip(id); }
+        fx.burst(PL.x, 0.2, PL.z, 30, 6, 0.75, 0.85, 0.9, { life: 0.8, size: 0.7, up: 0.8 }); save(true); } }; return; }
+      if (allObs) for (const b of allObs) if ((b.plat || b.deck) && b.r == null && b.top < 3 && inside(b, PL.x, PL.z, 1.4)) { prompt = { text: b.deck ? 'Climb aboard' : 'Climb out', fn: () => {
+        const dx = PL.x - b.x, dz = PL.z - b.z, lx = clamp(dx * b.c - dz * b.s, -b.hw + 0.5, b.hw - 0.5), lz = clamp(dx * b.s + dz * b.c, -b.hd + 0.5, b.hd - 0.5);
+        PL.x = b.x + lx * b.c + lz * b.s; PL.z = b.z - lx * b.s + lz * b.c; PL.y = b.top; PL.swim = false; PL.vy = 0; sfx.splash(); } }; return; }
+      return;
+    }
+    for (const s of towers) if (!discovered.has(s.id) && s.topY && PL.y > s.topY - 0.4 && Math.hypot(s.x - PL.x, s.z - PL.z) < 3.4) { prompt = { text: 'Survey the land', fn: () => {
+      let n = 0; for (const q of world.sites) if (!known.has(q.id) && Math.hypot(q.x - s.x, q.z - s.z) < 1500) { known.add(q.id); n++; }
+      for (const c of camps) { if (!c.ready) { const p = snapWalk(toX(c.lon), toZ(c.lat)); c.x = p[0]; c.z = p[1]; c.ready = true; } if (Math.hypot(c.x - s.x, c.z - s.z) < 1500) known.add('C' + c.i); }
+      for (const w of wrecks) if (w.ready && Math.hypot(w.x - s.x, w.z - s.z) < 1500) known.add(w.key);
+      for (const h of hunts) if (h.ready && Math.hypot(h.x - s.x, h.z - s.z) < 1500) known.add(h.key);
+      discovered.add(s.id); sfx.quest(); gainXp(80); ui.toast('Land surveyed', `${n} new places marked on your map`, 4); save(true); } }; return; }
+    for (const s of forts) if (!done.has(s.id) && s.chest && Math.hypot(s.chest.x - PL.x, s.chest.z - PL.z) < 3.2) {
+      if (s.cap && !s.cap.dead) { prompt = { text: 'Kill the captain first', fn: () => {} }; return; }
+      prompt = { text: 'Take the strongbox', fn: () => {
+        done.add(s.id); discovered.add(s.id); const r = 90 + 34 * s.lvl; PL.den += r; sfx.coin(); sfx.quest(); gainXp(160 + 45 * s.lvl); ui.toast('Outpost cleared', `${s.name} · +${r} denarii`, 4);
+        const pool = (STOCK[s.region] || STOCK.Italia).filter((id) => !PL.owned.includes(id)); if (pool.length && Math.random() < 0.5) { const id = pool[(Math.random() * pool.length) | 0]; PL.owned.push(id); ui.note(`Found: ${ITEMS[id].name}`); autoEquip(id); }
+        save(true); } }; return;
+    }
     if (findStep) { prompt = { text: 'Search', fn: () => { const { id, st } = findStep; const done = () => advance(id); if (st.say) say(st.say, done); else done(); } }; return; }
     if (PL.mode === 'foot' && !PL.climb) for (const f of foes) {
       if (f.dead || f.aware) continue;
@@ -597,6 +677,7 @@ function boot() {
       prompt = { text: 'Open the strongbox', fn: () => { campsDone.add(c.i); PL.den += c.den; sfx.coin(); sfx.step(); ui.note(`+${c.den} denarii`); if (c.reward && !PL.owned.includes(c.reward)) { PL.owned.push(c.reward); ui.note(`Found: ${ITEMS[c.reward].name}`); autoEquip(c.reward); } gainXp(60); save(true); } }; return;
     }
     if (PL.ship) {
+      if (PL.shipPos && Math.hypot(PL.shipPos.x - PL.x, PL.shipPos.z - PL.z) < 8.5 && PL.y > 0.6) { prompt = { text: 'Set sail', fn: () => embark(null) }; return; }
       const s = world.nearestSite(PL.x, PL.z, (p) => p.port);
       if (s && (Math.hypot(s.dock.x - PL.x, s.dock.z - PL.z) < 7 || (s.pierEnd && Math.hypot(s.pierEnd.x - PL.x, s.pierEnd.z - PL.z) < 9))) { prompt = { text: 'Set sail', fn: () => embark(s) }; return; }
       if (PL.shipPos && Math.hypot(PL.shipPos.x - PL.x, PL.shipPos.z - PL.z) < 22) { prompt = { text: 'Board your ship', fn: () => embark(null) }; return; }
@@ -631,7 +712,7 @@ function boot() {
   // =====================================================================
   function die() {
     sfx.death(); PL.atk = null; mode = 'dead'; input.unlock();
-    const respawn = () => { const s = world.nearestSite(PL.x, PL.z, (p) => discovered.has(p.id) && p.kind !== 'site') || world.siteById.ravenna; for (const f of foes) f.model.g.removeFromParent(); foes.length = 0; killGroup = null; for (const c of camps) c.spawned = false; setMode('foot'); const e = entryOf(s); placePlayer(e[0], e[1]); PL.hp = PL.maxHp; PL.st = 100; PL.invuln = 2; combat = 0; mode = 'play'; };
+    const respawn = () => { const s = world.nearestSite(PL.x, PL.z, (p) => discovered.has(p.id) && p.kind !== 'site' && p.kind !== 'tower') || world.siteById.ravenna; for (const f of foes) f.model.g.removeFromParent(); foes.length = 0; killGroup = null; for (const c of camps) c.spawned = false; for (const q of forts) q.spawned = false; for (const h of hunts) { h.spawned = false; h.boss = null; } setMode('foot'); const e = entryOf(s); placePlayer(e[0], e[1]); PL.hp = PL.maxHp; PL.st = 100; PL.invuln = 2; combat = 0; mode = 'play'; };
     if (G.bot) { G.deaths = (G.deaths || 0) + 1; respawn(); return; }
     setTimeout(() => ui.dead(() => fade(respawn)), 900);
   }
@@ -643,6 +724,7 @@ function boot() {
     PL.atk = { t: 0, dur: (kind === 2 ? 0.56 : 0.4) / w.spd, kind, hit: false, lunge: best ? clamp(bd - w.reach * 0.7, 0, 2.2) : 0.8 };
     PL.combo++; PL.comboT = 0.9; PL.queued = false; sfx.swing();
   }
+  function pushOut(o, r) { const dx = PL.x - o.x, dz = PL.z - o.z, d2 = dx * dx + dz * dz; if (d2 < r * r && d2 > 1e-5 && Math.abs(PL.y - o.y) < 1.6) { const d = Math.sqrt(d2), k = (r - d) / d; if (standOk(PL.x + dx * k, PL.z + dz * k, PL.y)) { PL.x += dx * k; PL.z += dz * k; } } }
   function updatePlayer(dt) {
     PL.time += dt; PL.invuln -= dt; PL.dodgeCd -= dt; PL.hurtT -= dt; PL.lastHurt += dt; PL.comboT -= dt; PL.stag -= dt;
     if (PL.comboT <= 0) PL.combo = 0;
@@ -662,6 +744,18 @@ function boot() {
       PL.y = 0; PL.mv = PL.speed / 26;
       if (PL.speed > 4 && Math.random() < dt * 30) fx.spawn(PL.x - Math.sin(PL.facing) * 8 + (Math.random() - 0.5) * 3, 0.2, PL.z - Math.cos(PL.facing) * 8 + (Math.random() - 0.5) * 3, 0, 0.4, 0, 1.2, 1.4, 0.7, 0.85, 0.9, 0);
       if (PL.hp < PL.maxHp) PL.hp = Math.min(PL.maxHp, PL.hp + PL.maxHp * 0.03 * dt);
+      if (act('jump')) {   // dive overboard
+        PL.shipPos = { x: PL.x, z: PL.z, rot: PL.facing }; setMode('foot'); PL.x += Math.cos(PL.facing) * 3.2; PL.z -= Math.sin(PL.facing) * 3.2; PL.y = 1.4; PL.vy = 4; PL.swim = false; PL.air = true; updateCities();
+      }
+      return;
+    }
+    PL.canSwim = PL.mode === 'foot';
+    if (PL.swim) {   // swimming: no fighting, just strokes
+      PL.atk = null; PL.blocking = false; PL.sneak = false; PL.climb = null;
+      if (moving) { moveBody(PL, wx * 4.4 * mag * dt, wz * 4.4 * mag * dt, 0.45); PL.facing = angleLerp(PL.facing, Math.atan2(wx, wz), 1 - Math.exp(-6 * dt)); if (Math.random() < dt * 9) fx.spawn(PL.x + (Math.random() - 0.5), 0.08, PL.z + (Math.random() - 0.5), 0, 0.6, 0, 0.6, 0.6, 0.75, 0.85, 0.9, 0); }
+      PL.mv = damp(PL.mv, moving ? mag : 0, 8, dt); PL.ph += dt * 5.5 * Math.max(0.25, PL.mv);
+      settle(PL, dt); PL.st = Math.min(100, PL.st + 12 * dt);
+      if (PL.lastHurt > 6 && PL.hp < PL.maxHp) PL.hp = Math.min(PL.maxHp, PL.hp + PL.maxHp * 0.02 * dt);
       return;
     }
     const riding = PL.mode === 'horse';
@@ -679,7 +773,7 @@ function boot() {
       }
     }
     if (act('sneak') && !riding) { PL.sneak = !PL.sneak; ui.note(PL.sneak ? 'Sneaking: slower, quieter and harder to see' : 'Standing'); }
-    if (act('mount') && PL.horse && !PL.atk) { PL.sneak = false; setMode(riding ? 'foot' : 'horse'); }
+    if (act('mount') && PL.horse && !PL.atk && !PL.air) { PL.sneak = false; setMode(riding ? 'foot' : 'horse'); }
     if (act('eat') && PL.panis > 0 && PL.hp < PL.maxHp) { PL.panis--; PL.hp = Math.min(PL.maxHp, PL.hp + PL.maxHp * 0.45); sfx.eat(); fx.burst(PL.x, PL.y + 1.2, PL.z, 12, 3, 0.6, 2.6, 0.8, { life: 0.6, size: 0.4 }); if (S.numbers) fx.number(PL.x, PL.y + 2.3, PL.z, '+' + Math.round(PL.maxHp * 0.45), 'heal'); }
     if (act('pilum') && PL.pila > 0 && !PL.atk && !riding) {
       let best = null, bd = 26; for (const f of foes) { if (f.dead) continue; const d = Math.hypot(f.x - PL.x, f.z - PL.z); if (d < bd) { bd = d; best = f; } }
@@ -728,6 +822,7 @@ function boot() {
       }
     }
     PL.mv = damp(PL.mv, sp, 12, dt); PL.ph += dt * (riding ? 15 : 10.5) * PL.mv;
+    if (PL.mode === 'foot') { for (const n of npcs) pushOut(n, 0.75); for (const c of civs) pushOut(c, 0.7); }
     settle(PL, dt);
     PL.stIdle += dt; if (PL.blocking) PL.stIdle = Math.min(PL.stIdle, 0.3);
     if (PL.stIdle > 0.7) PL.st = Math.min(100, PL.st + 26 * dt);
@@ -756,9 +851,9 @@ function boot() {
   // Save / load
   // =====================================================================
   function snapshot() {
-    return { v: 1, at: Date.now(), name: PL.name, level: PL.level, place: (world.nearestSite(PL.x, PL.z) || {}).name, time: PL.time, chapter: (QUESTS.find((q) => q.main && QS[q.id].state === 'active') || { name: 'Epilogue' }).name,
+    return { v: 2, at: Date.now(), name: PL.name, level: PL.level, place: (world.nearestSite(PL.x, PL.z) || {}).name, time: PL.time, chapter: (QUESTS.find((q) => q.main && QS[q.id].state === 'active') || { name: 'Epilogue' }).name,
       pl: { x: PL.x, z: PL.z, facing: PL.facing, hp: PL.hp, level: PL.level, xp: PL.xp, den: PL.den, panis: PL.panis, pila: PL.pila, owned: PL.owned, eq: PL.eq, horse: PL.horse, ship: PL.ship, shipPos: PL.shipPos, mode: PL.mode === 'horse' ? 'foot' : PL.mode, kills: PL.kills },
-      qs: QS, tracked, disc: [...discovered], camps: [...campsDone], tod: world.state.tod };
+      qs: QS, tracked, disc: [...discovered], camps: [...campsDone], known: [...known], done: [...done], tod: world.state.tod };
   }
   let savedT = 0;
   function save(auto) {
@@ -769,15 +864,16 @@ function boot() {
   }
   function startGame(slot, data) {
     slotNow = slot; for (const f of foes) f.model.g.removeFromParent(); foes.length = 0; killGroup = null; shots.length = 0; for (const n of npcs) n.h.g.removeFromParent(); npcs.length = 0; for (const c of camps) c.spawned = false;
-    discovered.clear(); campsDone.clear();
+    discovered.clear(); campsDone.clear(); known.clear(); done.clear(); way = null; for (const q of forts) { q.spawned = false; q.told = false; } for (const h of hunts) { h.spawned = false; h.boss = null; h.told = false; }
+    for (const n of ['fort', 'hunt']) for (let i = foes.length - 1; i >= 0; i--) if (foes[i].group.startsWith(n)) { foes[i].model.g.removeFromParent(); foes.splice(i, 1); }
     const p = data && data.pl;
     Object.assign(PL, { hp: 100, level: 1, xp: 0, den: 30, panis: 2, pila: 2, owned: ['pugio', 'noshield', 'tunica', 'nohelm'], eq: { weapon: 'pugio', shield: 'noshield', armor: 'tunica', helmet: 'nohelm' }, horse: false, ship: false, shipPos: null, mode: 'foot', kills: 0, time: 0, atk: null, st: 100, invuln: 1, facing: Math.PI }, p ? { ...p, owned: [...p.owned], eq: { ...p.eq } } : {});
     PL.time = data ? data.time || 0 : 0;
     initQuests(data && data.qs); tracked = data ? data.tracked : 'm1';
-    if (data) { for (const id of data.disc) discovered.add(id); for (const c of data.camps) campsDone.add(c); world.state.tod = data.tod ?? 0.36; } else world.state.tod = 0.34;
+    if (data) { for (const id of data.disc) { discovered.add(id); known.add(id); } for (const c of data.camps) campsDone.add(c); for (const k of data.known || []) known.add(k); for (const k of data.done || []) done.add(k); world.state.tod = data.tod ?? 0.36; } else world.state.tod = 0.34;
     recompute(); if (!p) PL.hp = PL.maxHp;
     const rv = world.siteById.ravenna;
-    if (!p) { const e = snapWalk(rv.x - 3, rv.z + 22); PL.x = e[0]; PL.z = e[1]; discovered.add('ravenna'); }
+    if (!p) { const e = snapWalk(rv.x - 3, rv.z + 22); PL.x = e[0]; PL.z = e[1]; discovered.add('ravenna'); known.add('ravenna'); }
     const m = PL.mode; PL.mode = 'foot'; horse.g.visible = false; horseAt = null;
     if (m === 'ship' && world.sailable(PL.x, PL.z)) setMode('ship'); else { const q = snapWalk(PL.x, PL.z); PL.x = q[0]; PL.z = q[1]; camDistT = 10; }
     PL.y = PL.mode === 'ship' ? 0 : world.getHeight(PL.x, PL.z);
@@ -816,12 +912,12 @@ function boot() {
       if (sailing) {
         const bob = Math.sin(rt * 1.1) * 0.15; ship.g.visible = true; ship.g.position.set(PL.x, 0.45 + bob, PL.z); ship.g.rotation.y = PL.facing; poseShip(ship, rt, PL.mv);
         hero.g.position.set(PL.x - Math.sin(PL.facing) * 2.5, 1.3 + bob, PL.z - Math.cos(PL.facing) * 2.5); hero.g.rotation.set(0, PL.facing, 0);
-        poseHuman(hero, { mv: 0, ph: rt, atk: -1, kind: 0, block: 0, dead: 0 });
+        poseHuman(hero, { t: rt, mv: 0, ph: 0, atk: -1, kind: 0, block: 0, dead: 0 });
       } else {
-        hero.g.position.set(PL.x, PL.y + (riding ? 0.78 + horse.body.position.y : 0), PL.z); hero.g.rotation.set(0, PL.facing, 0);
+        hero.g.position.set(PL.x, PL.y + (riding ? 0.78 + horse.body.position.y : 0) + (PL.swimK || 0) * 0.86, PL.z); hero.g.rotation.set(0, PL.facing, 0);
         if (PL.dodgeT > 0) hero.g.rotation.x = (1 - PL.dodgeT / 0.34) * TAU * (Math.sin(PL.facing) * PL.dx + Math.cos(PL.facing) * PL.dz > 0 ? 1 : -1);
-        hero.g.scale.y = damp(hero.g.scale.y, PL.sneak ? 0.8 : 1, 14, dt);
-        poseHuman(hero, { climb: !!PL.climb, mv: riding ? 0 : PL.mv, ph: PL.ph, atk: PL.atk ? PL.atk.t / PL.atk.dur : -1, kind: PL.atk ? PL.atk.kind : 0, block: PL.blocking ? 1 : 0, dead: mode === 'dead' ? 1 : 0, ride: riding, stag: PL.stag > 0 ? 1 : 0 });
+        PL.swimK = damp(PL.swimK || 0, PL.swim ? (PL.mv > 0.15 ? 1 : 0.3) : 0, 6, dt);
+        poseHuman(hero, { t: rt, sneak: PL.sneak && !PL.climb, air: PL.air && !PL.climb && !PL.swim && !riding, swim: PL.swim, climb: !!PL.climb, mv: riding ? 0 : PL.mv, ph: PL.ph, atk: PL.atk ? PL.atk.t / PL.atk.dur : -1, kind: PL.atk ? PL.atk.kind : 0, block: PL.blocking ? 1 : 0, dead: mode === 'dead' ? 1 : 0, ride: riding, stag: PL.stag > 0 ? 1 : 0 });
         hero.g.visible = !(PL.hurtT > 0 && Math.floor(rt * 30) % 2 === 0);
         if (riding) { horse.g.position.set(PL.x, PL.y, PL.z); horse.g.rotation.y = PL.facing; poseHorse(horse, PL.ph, PL.mv); }
         else if (horseAt) { horse.g.position.set(horseAt.x, horseAt.y, horseAt.z); horse.g.rotation.y = horseAt.rot; poseHorse(horse, 0, 0); if (Math.hypot(horseAt.x - PL.x, horseAt.z - PL.z) > 70) { horse.g.visible = false; horseAt = null; } }
@@ -881,7 +977,7 @@ function boot() {
       for (const a of ['map', 'bag', 'log', 'menu']) if (input.hit(a)) { input.unlock(); ui.open(a); break; }
       if (mode === 'play') step(dt);
     } else if (mode === 'dialog') { if (input.hit('interact') || input.hit('attack') || input.hit('jump')) nextLine(); }
-    else if (mode === 'ui' && input.hit('menu')) ui.close();
+    else if (mode === 'ui') { if (input.hit('menu')) ui.close(); else for (const a of ['map', 'bag', 'log']) if (input.hit(a)) { ui.open(a); break; } }
     const vx = mode === 'title' ? world.siteById.roma.x : PL.x, vz = mode === 'title' ? world.siteById.roma.z : PL.z;
     world.streamChunks(vx, vz, 1); world.streamRoads(vx, vz);
     cityT -= dt; if (cityT <= 0) { cityT = 0.3; if (mode !== 'title') updateCities(); }
@@ -895,7 +991,7 @@ function boot() {
     const reg = mode === 'title' ? 'Italia' : world.regionAt(PL.x, PL.z);
     musicTick({ war: foes.some((f) => f.aware && !f.dead), sea: PL.mode === 'ship', east: ['Aegyptus', 'Syria', 'Iudaea', 'Cilicia', 'Africa', 'Pontus'].includes(reg), night: world.state.night > 0.5 });
     renderer.toneMappingExposure = world.state.exposure;
-    composer.render();
+    if ($('mapscr').hidden) composer.render();   // the map covers the whole screen, so skip drawing the world behind it
     input.consume();
     if (raw < 0.25) {
       perfT += raw; perfN++; fpsT += raw; fpsN++;
@@ -910,6 +1006,15 @@ function boot() {
   Object.assign(api, {
     mode: () => mode, setMode: (m) => { mode = m; input.reset(); }, save, startGame, fastTravel, applySettings, slotKey, store, initAudio, sfx,
     slotNow: () => slotNow, setSlot: (n) => { slotNow = n; }, tracked: () => tracked, track: (id) => { tracked = id; }, objectiveOf, posOf, buildHero, combat: () => combat > 0 && foes.some((f) => f.aware && !f.dead),
+    xpNeed, known, done, way: () => way, setWay: (w) => { way = w; },
+    spots: () => {
+      const out = [];
+      for (const c of camps) if (known.has('C' + c.i)) out.push({ x: c.x, z: c.z, type: 'camp', done: campsDone.has(c.i), name: 'Bandit camp', lvl: c.lvl });
+      for (const w of wrecks) if (known.has(w.key)) out.push({ x: w.x, z: w.z, type: 'wreck', done: done.has(w.key), name: 'Sunken wreck', lvl: w.lvl });
+      for (const h of hunts) if (known.has(h.key)) out.push({ x: h.x, z: h.z, type: 'hunt', done: done.has(h.key), name: h.name, lvl: h.lvl });
+      return out;
+    },
+    activities: () => [['Places discovered', world.sites.filter((q) => q.kind !== 'fort' && q.kind !== 'tower' && discovered.has(q.id)).length, world.sites.filter((q) => q.kind !== 'fort' && q.kind !== 'tower').length], ['Outposts cleared', forts.filter((q) => done.has(q.id)).length, forts.length], ['Watchtowers surveyed', towers.filter((q) => discovered.has(q.id)).length, towers.length], ['Bandit camps looted', campsDone.size, camps.length], ['Wrecks plundered', wrecks.filter((w) => done.has(w.key)).length, wrecks.length], ['Beasts hunted', hunts.filter((h) => done.has(h.key)).length, hunts.length]],
     quit: () => { save(true); for (const f of foes) f.model.g.removeFromParent(); foes.length = 0; mode = 'title'; $('hud').hidden = true; ui.title(); }, shipPos: () => (PL.mode === 'ship' ? { x: PL.x, z: PL.z } : PL.shipPos),
   });
   input.canLock = () => mode === 'play' || mode === 'dialog';
@@ -918,7 +1023,7 @@ function boot() {
   window.addEventListener('pointerdown', () => { if (mode !== 'title' && mode !== 'loading') initAudio(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { if (mode === 'play') ui.open('menu'); suspendAudio(true); } else suspendAudio(false); });
   window.addEventListener('pagehide', () => save(true));
-  window.__a = { input, get camYaw() { return camYaw; }, cities, spawnFoe, get obs() { return allObs; }, PL, G, S, world, foes, npcs, QS, discovered, get mode() { return mode; }, get tracked() { return tracked; }, get prompt() { return prompt; }, trackedTarget,
+  window.__a = { known, done, forts, towers, wrecks, hunts, camps, input, get camYaw() { return camYaw; }, cities, spawnFoe, get obs() { return allObs; }, PL, G, S, world, foes, npcs, QS, discovered, get mode() { return mode; }, get tracked() { return tracked; }, get prompt() { return prompt; }, trackedTarget,
     sim(sec, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { if (mode === 'play') { step(dt); updatePeople(dt); cityT -= dt; if (cityT <= 0) { cityT = 0.3; updateCities(); } } else if (mode === 'dialog') nextLine(true); else break; } return mode; },
     start: (slot = 1) => startGame(slot, null), tp(id) { const s = world.siteById[id]; const e = entryOf(s); placePlayer(e[0], e[1]); world.streamChunks(PL.x, PL.z, 30); updateCities(); camTarget.set(PL.x, PL.y + 1.5, PL.z); }, cam(y, p, d) { camYaw = y; camPitch = p; camDistT = camDist = d; }, give, setMode, advance, ui, fastTravel, save, nextLine: () => nextLine(true) };
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { LAND } from './gen/land.js';
-import { PLACES, ROADS, RANGES, RIVERS } from './data.js';
+import { PLACES, ROADS, RANGES, RIVERS, FORTS, TOWERS } from './data.js';
 import { clamp, lerp, smoothstep, mulberry32, fbm, TAU } from '../../src/util.js';
 
 // ---------- projection ----------
@@ -13,7 +13,7 @@ export const toX = (lon) => (lon - LONC) * KX, toZ = (lat) => -(lat - LATC) * KZ
 export const toLon = (x) => x / KX + LONC, toLat = (z) => -z / KZ + LATC;
 
 export const CELL = 8, CN = 32, CS = CELL * CN;
-export const RADIUS = { urbs: 62, city: 46, town: 34, camp: 28, ruin: 40, site: 14, oppidum: 32, pyramids: 56 };
+export const RADIUS = { urbs: 62, city: 46, town: 34, camp: 28, ruin: 40, site: 14, oppidum: 32, pyramids: 56, fort: 28, tower: 9 };
 
 // ---------- helpers ----------
 const lin = (hex) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; };
@@ -98,7 +98,13 @@ export function litMat(extra = {}, kind = 'lit') {
       glow = ` float win = step(dot(vColor.rgb, vec3(0.3, 0.6, 0.1)), 0.02) * step(0.36, th(floor(vWp.xz * 0.9) + floor(vWp.y * 0.4)));
       totalEmissiveRadiance += vec3(2.6, 1.5, 0.55) * win * uNight;`;
     }
-    sh.fragmentShader = 'varying vec3 vWp; varying vec3 vWn; varying float vOy; uniform float uNight;' + NOISE_GLSL + '\n' + sh.fragmentShader
+    const bump = kind === 'lit' ? '' : `
+      { vec3 q = vWp * ${kind === 'city' ? '2.4' : '3.2'}; float bd = length(cameraPosition - vWp);
+        float n0 = tn(q.xz + q.y * 1.7), nx = tn(q.xz + vec2(0.3, 0.0) + q.y * 1.7), ny = tn(q.xz + (q.y + 0.3) * 1.7), nz = tn(q.xz + vec2(0.0, 0.3) + q.y * 1.7);
+        float m0 = tn(q.xz * 3.7 + q.y * 5.1), mx = tn(q.xz * 3.7 + vec2(0.4, 0.0) + q.y * 5.1), mz = tn(q.xz * 3.7 + vec2(0.0, 0.4) + q.y * 5.1);
+        vec3 bump = (vec3(n0 - nx, n0 - ny, n0 - nz) * ${kind === 'city' ? '0.26' : '0.3'} + vec3(m0 - mx, 0.0, m0 - mz) * 0.1) * smoothstep(120.0, 12.0, bd);
+        normal = normalize(normal + (viewMatrix * vec4(bump, 0.0)).xyz); }`;
+    sh.fragmentShader = 'varying vec3 vWp; varying vec3 vWn; varying float vOy; uniform float uNight;' + NOISE_GLSL + '\n' + sh.fragmentShader.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + bump)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + surf)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       #ifdef USE_COLOR
@@ -149,6 +155,12 @@ export function createWorld(scene, opts) {
 
   // ---------- features ----------
   const sites = PLACES.map((p) => ({ ...p, x: toX(p.lon), z: toZ(p.lat), r: RADIUS[p.kind], style: p.style || 'roman', h: null }));
+  {
+    const regionOf = (lat, lon) => { let b = null, bd = 1e9; for (const p of PLACES) { const d = (p.lat - lat) ** 2 + ((p.lon - lon) * 0.78) ** 2; if (d < bd) { bd = d; b = p; } } return b.region; };
+    const RN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+    FORTS.forEach(([lat, lon, lvl, name, foe], i) => sites.push({ id: 'fort' + i, name, lat, lon, kind: 'fort', lvl, foe, region: regionOf(lat, lon), x: toX(lon), z: toZ(lat), r: RADIUS.fort, style: 'roman', h: null, desc: 'An enemy outpost behind a timber palisade. Kill its captain and carry off the strongbox to clear it. Its sentries only see what is in front of them.' }));
+    TOWERS.forEach(([lat, lon], i) => sites.push({ id: 'tower' + i, name: 'Specula ' + RN[i], lat, lon, kind: 'tower', region: regionOf(lat, lon), x: toX(lon), z: toZ(lat), r: RADIUS.tower, style: 'roman', h: null, desc: 'A signal tower. Climb to the top and survey the land to mark every place for miles around on your map.' }));
+  }
   const siteById = Object.fromEntries(sites.map((s) => [s.id, s]));
   // move every site onto solid ground, and find a harbour for ports
   function spiral(x, z, ok, maxR, step = 6) {
@@ -327,7 +339,7 @@ export function createWorld(scene, opts) {
         vec2 q1 = vWp.xz * 1.9, q2 = vWp.xz * 0.22;
         float a0 = tn(q1), a1 = tn(q1 + vec2(e1, 0.0)), a2 = tn(q1 + vec2(0.0, e1));
         float b0 = tn(q2), b1 = tn(q2 + vec2(e2 * 0.22, 0.0)), b2 = tn(q2 + vec2(0.0, e2 * 0.22));
-        vec3 bump = vec3(a0 - a1, 0.0, a0 - a2) * 1.6 * smoothstep(90.0, 10.0, bd) + vec3(b0 - b1, 0.0, b0 - b2) * 2.2 * smoothstep(500.0, 60.0, bd);
+        vec3 bump = vec3(a0 - a1, 0.0, a0 - a2) * 0.8 * smoothstep(90.0, 10.0, bd) + vec3(b0 - b1, 0.0, b0 - b2) * 1.1 * smoothstep(500.0, 60.0, bd);
         normal = normalize(normal + (viewMatrix * vec4(bump, 0.0)).xyz); }`);
   };
   terrMat.customProgramCacheKey = () => 'terr';

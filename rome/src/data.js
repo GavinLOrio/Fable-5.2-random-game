@@ -9,7 +9,7 @@ export const PLACES = [
   { id: 'ariminum', name: 'Ariminum', lat: 44.0, lon: 12.62, kind: 'town', port: 1, region: 'Italia', desc: 'The first town of Italy proper, where the Via Flaminia from Rome meets the Via Aemilia. Caesar seized it the night he crossed the Rubicon.' },
   { id: 'roma', name: 'Roma', lat: 42.0, lon: 12.78, kind: 'urbs', region: 'Italia', desc: 'Capital of the Republic and home to perhaps a million people. The Colosseum will not exist for another century; Pompey\'s stone theatre, finished in 55 BC, is the newest wonder.' },
   { id: 'ostia', name: 'Ostia', lat: 41.72, lon: 12.2, kind: 'town', port: 1, region: 'Italia', desc: 'Rome\'s harbour at the mouth of the Tiber, where the grain ships from Sicily, Africa and Egypt unload.' },
-  { id: 'capua', name: 'Capua', lat: 41.08, lon: 14.25, kind: 'city', region: 'Italia', desc: 'The rich chief city of Campania on the Via Appia, famous for its gladiator schools. Spartacus broke out of one in 73 BC, and Caesar owns one here now.' },
+  { id: 'capua', name: 'Capua', lat: 41.3, lon: 14.3, kind: 'city', region: 'Italia', desc: 'The rich chief city of Campania on the Via Appia, famous for its gladiator schools. Spartacus broke out of one in 73 BC, and Caesar owns one here now.' },
   { id: 'brundisium', name: 'Brundisium', lat: 40.64, lon: 17.94, kind: 'city', port: 1, region: 'Italia', desc: 'The end of the Via Appia and the gateway to Greece. Pompey slipped out of this harbour with his army in March 49 BC.' },
   { id: 'syracusae', name: 'Syracusae', lat: 37.07, lon: 15.27, kind: 'city', port: 1, style: 'greek', region: 'Sicilia', desc: 'The greatest Greek city of Sicily, taken by Rome in 212 BC. Archimedes died in the sack; Cicero later found his forgotten tomb.' },
   { id: 'caralis', name: 'Caralis', lat: 39.22, lon: 9.12, kind: 'town', port: 1, region: 'Sardinia', desc: 'Chief port of Sardinia, an old Punic harbour that sends grain to Rome.' },
@@ -34,10 +34,10 @@ export const PLACES = [
   { id: 'alexandria', name: 'Alexandria', lat: 31.2, lon: 29.92, kind: 'urbs', port: 1, style: 'egypt', region: 'Aegyptus', desc: 'Founded by Alexander in 331 BC and ruled by the Ptolemies, a Macedonian dynasty. Its Pharos lighthouse and Library are wonders of the world.' },
   { id: 'pelusium', name: 'Pelusium', lat: 31.04, lon: 32.55, kind: 'town', port: 1, style: 'egypt', region: 'Aegyptus', desc: 'The eastern fortress of Egypt. Pompey the Great was murdered in a small boat off this shore on 28 September 48 BC.' },
   { id: 'memphis', name: 'Memphis', lat: 29.86, lon: 31.25, kind: 'town', style: 'egypt', region: 'Aegyptus', desc: 'The ancient capital of the pharaohs, where the Ptolemies are still crowned in the old Egyptian manner.' },
-  { id: 'pyramides', name: 'Pyramides', lat: 30.02, lon: 30.95, kind: 'pyramids', style: 'egypt', region: 'Aegyptus', desc: 'The pyramids of Giza were already some 2,500 years old in Caesar\'s day, as distant from him as he is from us.' },
+  { id: 'pyramides', name: 'Pyramides', lat: 30.12, lon: 30.78, kind: 'pyramids', style: 'egypt', region: 'Aegyptus', desc: 'The pyramids of Giza were already some 2,500 years old in Caesar\'s day, as distant from him as he is from us.' },
   // Graecia and the East
   { id: 'dyrrachium', name: 'Dyrrachium', lat: 41.32, lon: 19.45, kind: 'city', port: 1, style: 'greek', region: 'Graecia', desc: 'The landing place opposite Brundisium and the start of the Via Egnatia. Pompey made it his supply base in 48 BC.' },
-  { id: 'castra', name: 'Castra Caesaris', lat: 41.05, lon: 19.75, kind: 'camp', region: 'Graecia', desc: 'Caesar tried to pen Pompey against the sea with seventeen miles of earthworks here. In July 48 BC Pompey broke the line and Caesar suffered his worst defeat.' },
+  { id: 'castra', name: 'Castra Caesaris', lat: 40.97, lon: 19.78, kind: 'camp', region: 'Graecia', desc: 'Caesar tried to pen Pompey against the sea with seventeen miles of earthworks here. In July 48 BC Pompey broke the line and Caesar suffered his worst defeat.' },
   { id: 'apollonia', name: 'Apollonia', lat: 40.6, lon: 19.6, kind: 'town', style: 'greek', region: 'Graecia', desc: 'A Greek city famous for its schools. Caesar\'s great-nephew Octavius was studying here when the dictator was killed.' },
   { id: 'pharsalus', name: 'Pharsalus', lat: 39.3, lon: 22.38, kind: 'camp', region: 'Graecia', desc: 'On 9 August 48 BC Caesar, outnumbered two to one, routed Pompey on this plain in Thessaly.' },
   { id: 'thessalonica', name: 'Thessalonica', lat: 40.64, lon: 22.94, kind: 'city', port: 1, style: 'greek', region: 'Graecia', desc: 'Capital of Roman Macedonia on the Via Egnatia. The senators who fled with Pompey met here as a Senate in exile.' },
@@ -52,6 +52,67 @@ export const PLACES = [
   { id: 'antiochia', name: 'Antiochia', lat: 36.2, lon: 36.16, kind: 'city', style: 'east', region: 'Syria', desc: 'Once the Seleucid capital, now the seat of the Roman governor of Syria since Pompey annexed it in 64 BC.' },
   { id: 'tyrus', name: 'Tyrus', lat: 33.27, lon: 35.2, kind: 'town', port: 1, style: 'punic', region: 'Syria', desc: 'The Phoenician mother city of Carthage, renowned for purple dye made from sea snails.' },
   { id: 'hierosolyma', name: 'Hierosolyma', lat: 31.78, lon: 35.23, kind: 'city', style: 'east', region: 'Iudaea', desc: 'Jerusalem. Pompey took the city in 63 BC and walked into the Temple\'s inner sanctuary, but left its treasure untouched.' },
+  // ---- further places across the wider map ----
+  { id: 'neapolis', name: 'Neapolis', lat: 40.86, lon: 14.15, kind: 'city', port: 1, style: 'greek', region: 'Italia', desc: 'The "new city" of the Greeks on the Bay of Naples, where wealthy Romans keep villas and still speak Greek at dinner.' },
+  { id: 'pompeii', name: 'Pompeii', lat: 40.62, lon: 14.78, kind: 'town', region: 'Italia', desc: 'A prosperous Campanian town beneath a green, quiet mountain. No one alive knows Vesuvius is a volcano; it will not erupt for another 128 years.' },
+  { id: 'tarentum', name: 'Tarentum', lat: 40.47, lon: 17.24, kind: 'city', port: 1, style: 'greek', region: 'Italia', desc: 'A Spartan colony and once the richest city of Greek Italy. It called in King Pyrrhus against Rome and lost.' },
+  { id: 'aquileia', name: 'Aquileia', lat: 45.77, lon: 13.37, kind: 'city', port: 1, region: 'Italia', desc: 'A fortress colony at the head of the Adriatic. Three of Caesar\'s legions wintered here before the Gallic War.' },
+  { id: 'mediolanum', name: 'Mediolanum', lat: 45.46, lon: 9.19, kind: 'town', region: 'Italia', desc: 'Chief town of the Insubrian Gauls in the Po valley. Caesar gave the people north of the Po Roman citizenship in 49 BC.' },
+  { id: 'genua', name: 'Genua', lat: 44.41, lon: 8.93, kind: 'town', port: 1, region: 'Italia', desc: 'The harbour of the Ligurians, rebuilt by Rome after Hannibal\'s brother Mago burned it.' },
+  { id: 'messana', name: 'Messana', lat: 38.19, lon: 15.5, kind: 'town', port: 1, style: 'greek', region: 'Sicilia', desc: 'The town on the strait. A quarrel over it in 264 BC began Rome\'s first war with Carthage.' },
+  { id: 'panormus', name: 'Panormus', lat: 38.12, lon: 13.36, kind: 'town', port: 1, style: 'punic', region: 'Sicilia', desc: 'A Phoenician harbour whose name means "all-haven", taken by Rome in 254 BC.' },
+  { id: 'agrigentum', name: 'Agrigentum', lat: 37.31, lon: 13.58, kind: 'city', style: 'greek', region: 'Sicilia', desc: 'Greek Akragas, with a ridge of Doric temples. Its citizens were said to build as if they would live for ever and dine as if they would die tomorrow.' },
+  { id: 'lutetia', name: 'Lutetia', lat: 48.85, lon: 2.35, kind: 'oppidum', region: 'Gallia', desc: 'The island stronghold of the Parisii on the Sequana. Caesar summoned the Gallic council here in 53 BC.' },
+  { id: 'avaricum', name: 'Avaricum', lat: 47.08, lon: 2.4, kind: 'ruin', region: 'Gallia', desc: 'The finest town of the Bituriges. Caesar stormed it in 52 BC, and of forty thousand inside barely eight hundred escaped.' },
+  { id: 'gergovia', name: 'Gergovia', lat: 45.71, lon: 3.12, kind: 'oppidum', region: 'Gallia', desc: 'The hilltop capital of the Arverni, where Vercingetorix handed Caesar his one clear defeat in Gaul.' },
+  { id: 'genava', name: 'Genava', lat: 46.2, lon: 6.15, kind: 'town', region: 'Gallia', desc: 'A frontier town on the Rhone. In 58 BC Caesar broke its bridge to stop the Helvetii, and the Gallic War began.' },
+  { id: 'vesontio', name: 'Vesontio', lat: 47.24, lon: 6.02, kind: 'oppidum', region: 'Gallia', desc: 'Stronghold of the Sequani in a loop of the river Dubis. Caesar\'s army nearly mutinied here for fear of the Germans.' },
+  { id: 'durocortorum', name: 'Durocortorum', lat: 49.25, lon: 4.03, kind: 'oppidum', region: 'Gallia', desc: 'Capital of the Remi, the Belgic people who took Rome\'s side and never changed it.' },
+  { id: 'itius', name: 'Portus Itius', lat: 50.73, lon: 1.75, kind: 'camp', port: 1, region: 'Gallia', desc: 'The harbour where Caesar gathered eight hundred ships for his second crossing to Britain in 54 BC.' },
+  { id: 'atuatuca', name: 'Atuatuca', lat: 50.78, lon: 5.47, kind: 'ruin', region: 'Gallia', desc: 'A winter camp where, in 54 BC, Ambiorix of the Eburones lured out and destroyed a legion and a half.' },
+  { id: 'burdigala', name: 'Burdigala', lat: 44.84, lon: -0.58, kind: 'town', port: 1, region: 'Gallia', desc: 'A trading post of the Bituriges Vivisci on the Garumna, where British tin comes south.' },
+  { id: 'tolosa', name: 'Tolosa', lat: 43.6, lon: 1.44, kind: 'town', region: 'Gallia', desc: 'A town of the Tectosages. A consul who looted its sacred gold in 106 BC came to so bad an end that "Tolosan gold" became a proverb.' },
+  { id: 'dubris', name: 'Dubris', lat: 51.13, lon: 1.31, kind: 'camp', port: 1, region: 'Britannia', desc: 'The white cliffs where Caesar first tried to land in 55 BC, and found them lined with warriors and chariots.' },
+  { id: 'cassivellaunus', name: 'Oppidum Cassivellauni', lat: 51.8, lon: -0.3, kind: 'oppidum', region: 'Britannia', desc: 'The forest stronghold of the war leader Cassivellaunus, north of the Tamesis. Caesar took it in 54 BC, then went home and never returned.' },
+  { id: 'pons', name: 'Pons Caesaris', lat: 50.42, lon: 7.5, kind: 'site', region: 'Germania', desc: 'In 55 BC Caesar bridged the Rhine here in ten days, marched about for eighteen, then crossed back and broke the bridge behind him.' },
+  { id: 'noreia', name: 'Noreia', lat: 46.75, lon: 14.4, kind: 'oppidum', region: 'Noricum', desc: 'Seat of the Celtic kingdom of Noricum, famed for iron that makes the best sword blades in the world.' },
+  { id: 'sarmizegetusa', name: 'Sarmizegetusa', lat: 45.62, lon: 23.31, kind: 'oppidum', region: 'Dacia', desc: 'The mountain sanctuary of the Dacians. Their king Burebista has built an empire on the Danube, and Caesar plans a war against him.' },
+  { id: 'emporiae', name: 'Emporiae', lat: 42.13, lon: 3.12, kind: 'town', port: 1, style: 'greek', region: 'Hispania', desc: 'A Greek trading town whose name simply means "markets". Rome first set foot in Spain here in 218 BC.' },
+  { id: 'saguntum', name: 'Saguntum', lat: 39.68, lon: -0.28, kind: 'town', region: 'Hispania', desc: 'Hannibal\'s siege of this Roman ally in 219 BC started the Second Punic War.' },
+  { id: 'numantia', name: 'Numantia', lat: 41.81, lon: -2.44, kind: 'ruin', region: 'Hispania', desc: 'A Celtiberian hill town that defied Rome for twenty years. Scipio starved it out in 133 BC, and most of its people chose death over surrender.' },
+  { id: 'olisipo', name: 'Olisipo', lat: 38.72, lon: -9.14, kind: 'town', port: 1, region: 'Hispania', desc: 'A harbour at the mouth of the Tagus on the edge of the Ocean, said by its people to have been founded by Ulysses.' },
+  { id: 'brigantium', name: 'Brigantium', lat: 43.37, lon: -8.4, kind: 'town', port: 1, region: 'Hispania', desc: 'The far north-west corner of Spain. Caesar sailed here as governor in 61 BC, the first Roman fleet its people had ever seen.' },
+  { id: 'tingis', name: 'Tingis', lat: 35.78, lon: -5.81, kind: 'town', port: 1, style: 'punic', region: 'Mauretania', desc: 'A town of the kings of Mauretania opposite Spain, where the giant Antaeus was said to be buried.' },
+  { id: 'cirta', name: 'Cirta', lat: 36.37, lon: 6.61, kind: 'city', style: 'punic', region: 'Numidia', desc: 'The rock-girt capital of Numidia. King Juba rules from here, allied with Pompey\'s party and fond of ordering Romans about.' },
+  { id: 'hippo', name: 'Hippo Regius', lat: 36.9, lon: 7.75, kind: 'town', port: 1, style: 'punic', region: 'Numidia', desc: 'A royal harbour of the Numidian kings. Metellus Scipio died off this coast in 46 BC, saying only "The general is well."' },
+  { id: 'zama', name: 'Zama', lat: 36.1, lon: 9.3, kind: 'site', region: 'Africa', desc: 'Near here in 202 BC Scipio defeated Hannibal and ended the Second Punic War.' },
+  { id: 'hadrumetum', name: 'Hadrumetum', lat: 35.83, lon: 10.64, kind: 'town', port: 1, style: 'punic', region: 'Africa', desc: 'Where Caesar landed in Africa in 47 BC. He tripped coming ashore, and turned the bad omen by gripping the sand: "Africa, I hold you."' },
+  { id: 'leptis', name: 'Leptis Magna', lat: 32.64, lon: 14.29, kind: 'city', port: 1, style: 'punic', region: 'Africa', desc: 'A Punic trading city on the Libyan coast. Caesar fined it three million pounds of olive oil a year for backing Juba.' },
+  { id: 'paraetonium', name: 'Paraetonium', lat: 31.35, lon: 27.24, kind: 'town', port: 1, style: 'egypt', region: 'Aegyptus', desc: 'The western harbour of Egypt, where the desert road to the oracle of Ammon begins.' },
+  { id: 'ammonium', name: 'Ammonium', lat: 29.2, lon: 25.52, kind: 'site', style: 'egypt', region: 'Aegyptus', desc: 'The oasis oracle of Zeus Ammon. Alexander crossed the desert to ask it a question, and never told anyone the answer.' },
+  { id: 'thebae', name: 'Thebae', lat: 25.72, lon: 32.62, kind: 'city', style: 'egypt', region: 'Aegyptus', desc: 'Hundred-gated Thebes, with the largest temples in the world. It rose against the Ptolemies in 88 BC and was savagely punished.' },
+  { id: 'syene', name: 'Syene', lat: 24.1, lon: 32.9, kind: 'town', style: 'egypt', region: 'Aegyptus', desc: 'The last town of Egypt, at the first cataract of the Nile. Eratosthenes used a well here to measure the size of the Earth.' },
+  { id: 'petra', name: 'Petra', lat: 30.33, lon: 35.44, kind: 'city', style: 'east', region: 'Arabia', desc: 'The hidden capital of the Nabataean Arabs, grown rich on frankincense caravans. Its king sent cavalry to help Caesar at Alexandria.' },
+  { id: 'damascus', name: 'Damascus', lat: 33.51, lon: 36.29, kind: 'city', style: 'east', region: 'Syria', desc: 'An oasis city older than memory, taken for Rome by Pompey\'s officers in 64 BC.' },
+  { id: 'palmyra', name: 'Palmyra', lat: 34.55, lon: 38.27, kind: 'town', style: 'east', region: 'Syria', desc: 'A caravan town in the Syrian desert. When Antony raids it for plunder in 41 BC, its people simply carry their goods across the Euphrates.' },
+  { id: 'zeugma', name: 'Zeugma', lat: 37.06, lon: 37.87, kind: 'town', style: 'east', region: 'Syria', desc: 'The "bridge" over the Euphrates. Beyond the river lies the Parthian empire.' },
+  { id: 'carrhae', name: 'Carrhae', lat: 36.86, lon: 39.03, kind: 'site', region: 'Mesopotamia', desc: 'Here in 53 BC Parthian horse archers destroyed the army of Crassus and carried off seven legionary eagles. Rome has not yet avenged it.' },
+  { id: 'salamis', name: 'Salamis', lat: 35.18, lon: 33.9, kind: 'town', port: 1, style: 'greek', region: 'Cyprus', desc: 'Chief city of Cyprus. Marcus Brutus, the future assassin, lent it money at forty-eight per cent interest.' },
+  { id: 'halicarnassus', name: 'Halicarnassus', lat: 37.04, lon: 27.42, kind: 'town', port: 1, style: 'greek', region: 'Asia', desc: 'Home of the Mausoleum, the tomb of King Mausolus and one of the seven wonders.' },
+  { id: 'pergamum', name: 'Pergamum', lat: 39.13, lon: 27.18, kind: 'city', style: 'greek', region: 'Asia', desc: 'A royal city on a crag. Its last king left his whole kingdom to Rome in his will in 133 BC. Its library is second only to Alexandria\'s.' },
+  { id: 'mytilene', name: 'Mytilene', lat: 39.1, lon: 26.55, kind: 'town', port: 1, style: 'greek', region: 'Asia', desc: 'Chief town of Lesbos. A twenty-year-old Caesar won the civic crown here for saving a fellow soldier\'s life.' },
+  { id: 'ilium', name: 'Ilium', lat: 39.96, lon: 26.24, kind: 'ruin', style: 'greek', region: 'Asia', desc: 'The site of Troy. The Julii claim descent from the Trojan prince Aeneas, and so from the goddess Venus.' },
+  { id: 'nicomedia', name: 'Nicomedia', lat: 40.77, lon: 29.92, kind: 'city', port: 1, style: 'greek', region: 'Bithynia', desc: 'Capital of Bithynia. The young Caesar stayed so long at King Nicomedes\' court that his enemies never let him forget it.' },
+  { id: 'sinope', name: 'Sinope', lat: 42.03, lon: 35.15, kind: 'city', port: 1, style: 'greek', region: 'Pontus', desc: 'Birthplace and capital of Mithridates the Great, who fought Rome for forty years.' },
+  { id: 'trapezus', name: 'Trapezus', lat: 41.0, lon: 39.72, kind: 'town', port: 1, style: 'greek', region: 'Pontus', desc: 'Where Xenophon\'s Ten Thousand finally saw the sea and shouted "Thalatta! Thalatta!"' },
+  { id: 'panticapaeum', name: 'Panticapaeum', lat: 45.35, lon: 36.47, kind: 'town', port: 1, style: 'greek', region: 'Bosporus', desc: 'Capital of the Bosporan kingdom. Mithridates died here, and his son Pharnaces set out from here to win back Pontus.' },
+  { id: 'chersonesus', name: 'Chersonesus', lat: 44.61, lon: 33.49, kind: 'town', port: 1, style: 'greek', region: 'Bosporus', desc: 'A Greek colony on the Tauric peninsula that ships grain across the Euxine.' },
+  { id: 'tomis', name: 'Tomis', lat: 44.18, lon: 28.65, kind: 'town', port: 1, style: 'greek', region: 'Thracia', desc: 'A bleak harbour on the Euxine. Fifty years from now the poet Ovid will be exiled here and hate every day of it.' },
+  { id: 'philippi', name: 'Philippi', lat: 41.01, lon: 24.29, kind: 'town', style: 'greek', region: 'Graecia', desc: 'A town on the Via Egnatia beside a marshy plain. In 42 BC Brutus and Cassius will make their last stand here.' },
+  { id: 'delphi', name: 'Delphi', lat: 38.48, lon: 22.5, kind: 'site', style: 'greek', region: 'Graecia', desc: 'The oracle of Apollo, where the Pythia speaks for the god. The Greeks held it to be the navel of the world.' },
+  { id: 'olympia', name: 'Olympia', lat: 37.64, lon: 21.63, kind: 'site', style: 'greek', region: 'Graecia', desc: 'Home of the Olympic games, held every four years since 776 BC, and of Phidias\' gold and ivory Zeus.' },
+  { id: 'sparta', name: 'Sparta', lat: 37.07, lon: 22.43, kind: 'town', style: 'greek', region: 'Graecia', desc: 'Once the terror of Greece, now a quiet town that performs its old customs for visitors.' },
+  { id: 'actium', name: 'Actium', lat: 38.95, lon: 20.77, kind: 'site', port: 1, style: 'greek', region: 'Graecia', desc: 'A sandy cape with a temple of Apollo. In 31 BC the fleets of Octavian and Antony will decide the fate of the world here.' },
 ];
 
 // ---------- roads (lists of place ids or [lat, lon] waypoints) ----------
@@ -74,7 +135,34 @@ export const ROADS = [
   { name: 'Iter Aegyptium', pts: ['alexandria', [30.6, 30.6], 'pyramides', 'memphis'] },
   { name: 'Via Maris', pts: ['alexandria', [31.25, 31.2], 'pelusium', [31.3, 34.2], 'hierosolyma'] },
   { name: 'Iter Syriacum', pts: ['hierosolyma', [32.6, 35.3], 'tyrus', [34.8, 35.95], 'antiochia', [36.75, 36.0], 'tarsus'] },
-  { name: 'Iter Ponticum', pts: ['tarsus', [38.0, 34.9], [39.3, 35.5], 'zela'] },
+  { name: 'Iter Ponticum', pts: ['tarsus', [38.0, 34.9], [39.3, 35.5], 'zela', [41.2, 35.6], 'sinope'] },
+  { name: 'Via Campana', pts: ['capua', 'neapolis', 'pompeii'] },
+  { name: 'Via Appia Tarentina', pts: ['tarentum', 'brundisium'] },
+  { name: 'Via Postumia', pts: ['genua', [44.9, 9.0], [45.05, 9.7], 'mediolanum'] },
+  { name: 'Via Annia', pts: ['ravenna', [45.4, 12.0], 'aquileia', [46.3, 13.8], 'noreia'] },
+  { name: 'Iter Belgicum', pts: ['alesia', 'durocortorum', [50.2, 3.0], 'itius'] },
+  { name: 'Iter Sequanicum', pts: ['alesia', [48.3, 3.3], 'lutetia'] },
+  { name: 'Iter Arvernum', pts: ['bibracte', 'avaricum'] },
+  { name: 'Iter Helveticum', pts: ['genava', 'vesontio', 'alesia'] },
+  { name: 'Iter Rhenanum', pts: ['durocortorum', 'atuatuca', 'pons'] },
+  { name: 'Iter Aquitanicum', pts: ['narbo', 'tolosa', 'burdigala'] },
+  { name: 'Iter Britannicum', pts: ['dubris', [51.4, 0.5], 'cassivellaunus'] },
+  { name: 'Iter Celtibericum', pts: ['tarraco', 'saguntum'] },
+  { name: 'Iter Numantinum', pts: ['ilerda', [41.7, -1.0], 'numantia'] },
+  { name: 'Iter Lusitanum', pts: ['corduba', [38.9, -6.3], 'olisipo'] },
+  { name: 'Iter Numidicum', pts: ['utica', 'hippo', 'cirta'] },
+  { name: 'Iter Byzacenum', pts: ['thapsus', 'hadrumetum', 'zama'] },
+  { name: 'Iter Nilicum', pts: ['memphis', [28.1, 30.8], [26.6, 31.7], 'thebae', 'syene'] },
+  { name: 'Iter Libycum', pts: ['alexandria', 'paraetonium', [30.3, 26.4], 'ammonium'] },
+  { name: 'Via Regia', pts: ['damascus', [32.3, 36.0], 'petra'] },
+  { name: 'Iter Damascenum', pts: ['tyrus', 'damascus', 'palmyra'] },
+  { name: 'Iter Euphratense', pts: ['antiochia', 'zeugma', 'carrhae'] },
+  { name: 'Iter Asianum', pts: ['ephesus', 'pergamum', 'ilium'] },
+  { name: 'Iter Bithynicum', pts: ['byzantium', 'nicomedia'] },
+  { name: 'Via Egnatia Orientalis', pts: ['thessalonica', 'philippi'] },
+  { name: 'Iter Peloponnesiacum', pts: ['corinthus', [37.5, 22.4], 'sparta', [37.4, 21.9], 'olympia'] },
+  { name: 'Iter Delphicum', pts: ['athenae', [38.3, 23.3], 'delphi', [38.8, 21.4], 'actium'] },
+  { name: 'Iter Dacicum', pts: [[43.54, 16.48], [44.2, 18.0], [44.8, 20.5], 'sarmizegetusa'] },
 ];
 
 // ---------- mountain ranges: [lat, lon] polylines, peak height, half-width (world units) ----------
@@ -95,6 +183,12 @@ export const RANGES = [
   { h: 50, w: 110, pts: [[35.3, 23.9], [35.2, 25.0]] },                                                          // Cretan Ida
   { h: 55, w: 110, pts: [[34.3, 36.0], [33.5, 35.8]] },                                                          // Libanus
   { h: 40, w: 100, pts: [[40.1, 9.3], [39.9, 9.3]] },                                                            // Sardinia
+  { h: 74, w: 200, pts: [[48.2, 24.2], [46.6, 25.6], [45.5, 25.2], [45.3, 22.9]] },                              // Carpates
+  { h: 86, w: 230, pts: [[39.6, 38.2], [39.2, 40.2], [38.6, 41.8]] },                                            // Armenian highlands
+  { h: 62, w: 150, pts: [[43.1, -7.0], [43.0, -4.6], [42.9, -2.6]] },                                            // Cantabrian mountains
+  { h: 56, w: 130, pts: [[28.5, 33.9], [29.2, 34.3]] },                                                          // Sinai
+  { h: 40, w: 150, pts: [[47.2, 6.3], [48.2, 7.1]] },                                                            // Vosegus
+  { h: 44, w: 160, pts: [[25.5, 33.8], [27.5, 33.0], [28.6, 32.4]] },                                            // Eastern desert hills
 ];
 
 export const RIVERS = [
@@ -106,6 +200,14 @@ export const RIVERS = [
   { name: 'Baetis', w: 8, pts: [[38.0, -3.0], [37.88, -4.7], [37.4, -5.95], [36.85, -6.35]] },
   { name: 'Nilus', w: 12, pts: [[29.5, 31.2], [29.9, 31.22], [30.2, 31.12], [30.8, 30.8], [31.25, 30.35]] },
   { name: 'Nilus Pelusiacus', w: 9, pts: [[30.2, 31.12], [30.7, 31.8], [31.05, 32.45]] },
+  { name: 'Nilus Superior', w: 12, pts: [[24.0, 32.9], [25.0, 32.85], [25.7, 32.62], [26.6, 31.9], [27.6, 30.9], [28.6, 30.85], [29.5, 31.2]] },
+  { name: 'Rhenus', w: 10, pts: [[47.6, 8.6], [48.6, 7.9], [49.5, 8.4], [50.4, 7.5], [51.3, 6.6], [51.9, 5.6]] },
+  { name: 'Danuvius', w: 11, pts: [[48.3, 10.0], [48.6, 13.2], [48.0, 16.6], [46.4, 18.9], [44.9, 20.4], [44.5, 22.6], [43.8, 25.4], [44.2, 27.6], [45.2, 28.9]] },
+  { name: 'Sequana', w: 8, pts: [[47.9, 4.2], [48.5, 3.0], [48.85, 2.35], [49.3, 1.2], [49.45, 0.4]] },
+  { name: 'Liger', w: 8, pts: [[45.8, 4.2], [47.0, 3.1], [47.8, 1.9], [47.4, 0.2], [47.25, -1.6]] },
+  { name: 'Tamesis', w: 7, pts: [[51.7, -1.4], [51.5, -0.3], [51.48, 0.5]] },
+  { name: 'Tagus', w: 8, pts: [[40.2, -3.0], [39.8, -4.6], [39.5, -7.0], [38.75, -9.0]] },
+  { name: 'Euphrates', w: 11, pts: [[39.2, 38.6], [38.0, 38.4], [37.05, 37.95], [36.3, 38.3], [35.6, 39.4], [34.9, 40.6]] },
 ];
 
 // ---------- gear ----------
@@ -154,7 +256,10 @@ export const STOCK = {
   Cilicia: ['kopis', 'hasta', 'aspis', 'squamata'],
   Syria: ['kopis', 'hasta', 'aspis', 'squamata'],
   Iudaea: ['kopis', 'hasta', 'parma', 'squamata'],
-  Pontus: [],
+  Pontus: ['kopis', 'hasta', 'aspis', 'squamata'],
+  Britannia: ['gallic', 'parma', 'agen'], Germania: ['gallic', 'hasta', 'parma'], Noricum: ['gladius', 'gallic', 'hamata', 'agen'], Dacia: ['falcata', 'hasta', 'parma', 'squamata'],
+  Mauretania: ['hasta', 'parma', 'squamata'], Numidia: ['hasta', 'parma', 'squamata', 'coolus'], Arabia: ['kopis', 'hasta', 'parma', 'squamata'], Mesopotamia: ['kopis', 'hasta', 'squamata'],
+  Cyprus: ['kopis', 'aspis', 'linothorax'], Bithynia: ['kopis', 'hasta', 'aspis', 'hamata'], Bosporus: ['kopis', 'hasta', 'aspis', 'squamata'],
 };
 export const PRICE = { panis: 8, pilum: 14 };
 
@@ -199,6 +304,12 @@ export const FOES = {
   gladiator: { name: 'Gladiator', hp: 80, dmg: 15, spd: 5.0, xp: 30, den: [0, 0], guard: 0.25, look: { tunic: 0x5a3a2a, helmet: 'coolus', crest: 'red', weapon: 'sica', shield: 'parma', bare: 1 } },
   centurio: { name: 'Centurion', hp: 150, dmg: 19, spd: 4.8, xp: 70, den: [15, 30], guard: 0.45, elite: 1, look: { tunic: 0x2f4a7a, armor: 'hamata', helmet: 'montefortino', crest: 'trans', weapon: 'gladius', shield: 'scutum', shieldCol: 0x2f4a7a, scale: 1.08 } },
   lupus: { name: 'Wolf', hp: 26, dmg: 8, spd: 8.2, xp: 10, den: [0, 0], beast: 1 },
+  praefectus: { name: 'Outpost Captain', hp: 190, dmg: 20, spd: 4.9, xp: 110, den: [30, 50], guard: 0.45, elite: 1, look: { tunic: 0x3a3a48, armor: 'squamata', helmet: 'attic', crest: 'red', cloak: 0x1f1f2a, weapon: 'gladius', shield: 'scutum', shieldCol: 0x2a2a34, scale: 1.1 } },
+  alpha: { name: 'Pack Leader', hp: 170, dmg: 16, spd: 8.8, xp: 150, den: [0, 0], beast: 1, elite: 1, boss: 1, coat: 0x3a3a40, dark: 0x1a1a1e, size: 0.68 },
+  ursus: { name: 'Bear', hp: 340, dmg: 26, spd: 6.4, xp: 260, den: [0, 0], beast: 1, elite: 1, boss: 1, coat: 0x4a3222, dark: 0x2a1c12, size: 0.9, wide: 1.5 },
+  aper: { name: 'Great Boar', hp: 230, dmg: 21, spd: 8.2, xp: 200, den: [0, 0], beast: 1, elite: 1, boss: 1, coat: 0x3c2e26, dark: 0x1e1612, size: 0.62, wide: 1.35 },
+  leo: { name: 'Lion', hp: 280, dmg: 24, spd: 8.8, xp: 260, den: [0, 0], beast: 1, elite: 1, boss: 1, coat: 0xb8904a, dark: 0x7a5a2a, size: 0.78, wide: 1.15 },
+  panthera: { name: 'Panther', hp: 210, dmg: 22, spd: 9.6, xp: 220, den: [0, 0], beast: 1, elite: 1, boss: 1, coat: 0xc49a4e, dark: 0x2a2018, size: 0.66 },
   labienus: { name: 'Titus Labienus', hp: 520, dmg: 24, spd: 5.0, xp: 400, den: [120, 120], guard: 0.5, elite: 1, boss: 1, look: { tunic: 0x2f4a7a, armor: 'musculata', helmet: 'attic', crest: 'red', cloak: 0x2f4a7a, weapon: 'gladius', shield: 'scutum', shieldCol: 0x2f4a7a, scale: 1.15 } },
   achillas: { name: 'Achillas', hp: 300, dmg: 20, spd: 5.0, xp: 220, den: [80, 80], guard: 0.4, elite: 1, boss: 1, look: { tunic: 0xe8dcc0, armor: 'squamata', helmet: 'attic', crest: 'red', cloak: 0x1a6a6a, weapon: 'kopis', shield: 'aspis', skin: 0xb8865a, scale: 1.12 } },
 };
@@ -206,7 +317,7 @@ export const FOES = {
 export const WILD = {
   Italia: ['latro', 'latro', 'lupus'], Sicilia: ['latro', 'pirata'], Sardinia: ['latro', 'pirata'], Gallia: ['gallus', 'lupus', 'latro'],
   Hispania: ['iber', 'latro', 'lupus'], Africa: ['numida', 'latro'], Aegyptus: ['latro', 'numida'], Graecia: ['latro', 'sagittarius', 'lupus'],
-  Creta: ['sagittarius', 'pirata'], Asia: ['latro', 'pirata'], Thracia: ['latro', 'lupus'], Cilicia: ['pirata', 'latro'], Syria: ['latro', 'numida'], Iudaea: ['latro'], Pontus: ['ponticus', 'lupus'],
+  Creta: ['sagittarius', 'pirata'], Asia: ['latro', 'pirata'], Thracia: ['latro', 'lupus'], Cilicia: ['pirata', 'latro'], Syria: ['latro', 'numida'], Iudaea: ['latro'], Pontus: ['ponticus', 'lupus'], Britannia: ['gallus', 'lupus'], Germania: ['gallus', 'lupus'], Noricum: ['gallus', 'lupus'], Dacia: ['gallus', 'lupus'], Mauretania: ['numida'], Numidia: ['numida', 'latro'], Arabia: ['latro', 'numida'], Mesopotamia: ['ponticus'], Cyprus: ['pirata'], Bithynia: ['latro', 'pirata'], Bosporus: ['ponticus', 'lupus'],
 };
 
 // bandit camps with a strongbox: [lat, lon, level, reward item or null, denarii]
@@ -536,4 +647,25 @@ export const QUESTS = [
       { t: 'goto', at: 'pyramides', r: 30, obj: 'Travel to the pyramids', say: [['', 'The casing stones still gleam white in the sun. The oldest of these tombs was built about 2560 BC, further in time from Caesar than Caesar is from the modern world.']] },
     ],
   },
+];
+
+// ---------- world activities ----------
+// enemy outposts: [lat, lon, level, name, garrison foe type]
+export const FORTS = [
+  [43.35, 11.2, 2, 'Castellum Umbrum', 'miles'], [41.6, 14.9, 3, 'Castellum Samniticum', 'miles'], [39.3, 16.4, 4, 'Arx Latronum', 'latro'], [37.75, 14.35, 5, 'Praesidium Siculum', 'pirata'],
+  [44.9, 7.6, 4, 'Castellum Alpinum', 'gallus'], [46.2, 3.9, 6, 'Dunum Arvernum', 'gallus'], [48.2, -0.6, 7, 'Dunum Armoricum', 'gallus'], [50.3, 3.2, 8, 'Castra Nerviorum', 'gallus'], [51.4, 0.6, 9, 'Dunum Cantiacum', 'gallus'],
+  [42.3, -1.9, 6, 'Castellum Vasconum', 'iber'], [39.9, -4.2, 7, 'Arx Carpetana', 'iber'], [37.2, -2.2, 8, 'Castellum Pompeianum', 'miles'], [36.1, -5.3, 7, 'Speluncae Piratarum', 'pirata'],
+  [34.9, -2.5, 8, 'Arx Maura', 'numida'], [35.7, 7.5, 8, 'Castra Iubae', 'numida'], [31.9, 12.6, 9, 'Arx Syrtica', 'numida'], [30.4, 26.3, 9, 'Praesidium Deserti', 'latro'], [27.6, 31.0, 10, 'Castra Thebaica', 'aegyptius'],
+  [32.4, 36.6, 10, 'Arx Nabataea', 'numida'], [36.3, 38.3, 11, 'Castellum Parthicum', 'ponticus'], [39.6, 37.8, 11, 'Arx Pontica', 'ponticus'], [38.7, 30.8, 9, 'Castellum Phrygium', 'ponticus'],
+  [41.5, 26.2, 8, 'Arx Thracum', 'gallus'], [40.2, 20.6, 7, 'Praesidium Pompeii', 'miles'], [37.9, 21.85, 7, 'Praesidium Arcadicum', 'miles'], [44.6, 21.5, 10, 'Dava Dacica', 'gallus'], [43.4, 17.9, 6, 'Arx Illyrica', 'pirata'], [45.1, 34.6, 10, 'Castellum Bosporanum', 'ponticus'],
+];
+// watchtowers to climb: [lat, lon]
+export const TOWERS = [[42.9, 12.2], [40.9, 15.6], [38.0, 14.4], [44.6, 9.6], [45.9, 5.2], [47.9, 1.6], [50.9, -0.6], [41.3, -0.8], [38.3, -6.2], [36.3, 3.2], [33.6, 11.0], [30.6, 29.3], [26.6, 32.3], [32.9, 35.6], [38.3, 34.6], [39.9, 29.2], [42.1, 23.6], [38.3, 21.6], [43.9, 19.2], [36.7, 30.6]];
+// sunken wrecks to dive for: [lat, lon, level]
+export const WRECKS = [[41.3, 12.1, 2], [40.4, 14.0, 3], [37.8, 15.8, 4], [43.0, 6.2, 4], [41.0, 2.4, 5], [36.0, -5.9, 6], [37.0, 11.2, 6], [32.6, 23.6, 7], [31.5, 30.4, 8], [35.0, 25.9, 7], [36.3, 27.6, 8], [37.7, 23.9, 6], [40.3, 19.2, 5], [41.2, 29.3, 8], [34.9, 33.2, 9], [43.3, 16.0, 5], [50.9, 1.5, 8], [38.5, -9.5, 7]];
+// beast hunts: [lat, lon, level, foe type, name, pack type or null]
+export const HUNTS = [
+  [41.9, 13.6, 3, 'alpha', 'The Wolves of the Apennine', 'lupus'], [46.3, 10.3, 5, 'ursus', 'The Bear of the Raetian Alps', null], [47.6, 3.4, 6, 'alpha', 'The Wolf of the Morvan', 'lupus'],
+  [42.6, 0.6, 6, 'ursus', 'The Pyrenean Bear', null], [40.3, -5.2, 7, 'aper', 'The Boar of Lusitania', null], [34.3, 2.2, 8, 'leo', 'The Lion of the Atlas', null], [33.4, 8.9, 9, 'leo', 'The Lion of Numidia', null],
+  [38.45, 21.6, 7, 'aper', 'The Boar of Calydon', null], [39.8, 21.3, 7, 'ursus', 'The Bear of Pindus', null], [37.4, 31.6, 9, 'panthera', 'The Cilician Panther', null], [32.0, 35.9, 10, 'leo', 'The Lion of the Jordan', null], [45.4, 25.0, 10, 'ursus', 'The Carpathian Bear', null],
 ];

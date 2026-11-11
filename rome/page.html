@@ -136,6 +136,24 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
 #mapCard h3 { margin: 0; font: 800 17px var(--display); letter-spacing: 0.08em; color: var(--red); }
 #mapCard h3 small { font: 700 11px var(--display); letter-spacing: 0.14em; color: var(--ink2); margin-left: 8px; }
 #mapCard p { margin: 0; font-size: 14.5px; line-height: 1.35; }
+#tabs { position: fixed; top: 0; left: 0; right: 0; z-index: 5; display: flex; justify-content: center; align-items: center; gap: 6px; padding: calc(var(--st) + 2px) var(--sr) 8px var(--sl); background: linear-gradient(180deg, rgba(18, 13, 8, 0.92), rgba(18, 13, 8, 0.72) 70%, transparent); }
+#tabs [data-tab] { padding: 9px clamp(10px, 3vw, 26px); border-radius: 8px; border: 1.5px solid rgba(217, 173, 78, 0.45); background: rgba(18, 13, 8, 0.6); color: var(--parch); font: 800 clamp(11.5px, 1.6vw, 14px) var(--display); letter-spacing: 0.14em; text-transform: uppercase; }
+#tabs [data-tab].on { background: linear-gradient(180deg, var(--red2), var(--red)); border-color: var(--gold); color: #fbeed0; }
+#tabs .x { margin-left: 6px; background: var(--parch); }
+body.menu #panelOv { padding-top: calc(var(--st) + 58px); justify-content: flex-start; }
+body.menu #panelOv .panel { max-height: calc(100% - 4px); }
+.sheet { display: grid; grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); gap: 8px; }
+.sheet div { padding: 8px 6px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 255, 255, 0.3); text-align: center; font: 700 10.5px var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink2); }
+.sheet b { display: block; font: 800 19px var(--display); letter-spacing: 0.02em; color: var(--red); }
+.xp { height: 7px; border-radius: 4px; background: rgba(36, 26, 16, 0.18); overflow: hidden; } .xp i { display: block; height: 100%; background: var(--gold); }
+.worn { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
+.worn button { padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: rgba(255, 255, 255, 0.28); color: var(--ink); font: 800 13px var(--display); text-align: left; }
+.worn button small { display: block; font: 700 10px var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink2); }
+.worn button.on { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); background: rgba(140, 29, 24, 0.08); }
+.actg { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 14px; }
+.actv { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 14px; font-weight: 700; } .actv b { color: var(--red); }
+.actv i { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: rgba(36, 26, 16, 0.18); overflow: hidden; } .actv em { display: block; height: 100%; background: var(--red2); }
+.mcb { display: flex; gap: 8px; flex-wrap: wrap; }
 #loading { background: var(--night); text-align: center; }
 #loading h2 { margin: 0; font: 800 40px var(--display); letter-spacing: 0.2em; color: var(--parch); }
 #loading p { margin: 0; letter-spacing: 0.28em; text-transform: uppercase; font-size: 12px; color: var(--gold); }
@@ -205,9 +223,9 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
 <div class="ov" id="panelOv" hidden><div class="panel" id="panel"><div class="phead"><h2 id="pTitle"></h2><button class="x" id="pClose" aria-label="Close">×</button></div><div class="pbody" id="pBody"></div></div></div>
 <div class="ov" id="mapscr" hidden>
   <canvas id="mapCv"></canvas>
-  <div id="mapTop"><h2>MARE NOSTRUM</h2><button class="x" id="mapClose" aria-label="Close map">×</button></div>
   <div id="mapCard" hidden></div>
 </div>
+<div id="tabs" hidden><button data-tab="map">Map</button><button data-tab="bag">Gear</button><button data-tab="log">Quests</button><button data-tab="menu">System</button><button class="x" id="tabClose" aria-label="Close menu">×</button></div>
 <div id="fade"></div>
 <div class="ov" id="loading"><h2>AQUILA</h2><p id="loadText">Surveying the provinces</p></div>
 
