@@ -6,7 +6,7 @@ export function createInput(canvas) {
   const joyEl = document.getElementById('joy'), knob = document.getElementById('joyknob');
   let joyId = null, joyX = 0, joyY = 0, jx = 0, jy = 0, pinch = 0, rmb = false, btnBlock = false;
   const cams = new Map();
-  const KEYMAP = { KeyJ: 'attack', Space: 'dodge', KeyF: 'pilum', KeyE: 'interact', Enter: 'interact', KeyH: 'mount', KeyR: 'eat', KeyC: 'sneak', KeyM: 'map', KeyI: 'bag', KeyL: 'log', Escape: 'menu', KeyP: 'menu' };
+  const KEYMAP = { KeyJ: 'attack', Space: 'jump', KeyF: 'pilum', KeyE: 'interact', Enter: 'interact', KeyH: 'mount', KeyR: 'eat', KeyC: 'sneak', KeyM: 'map', KeyI: 'bag', KeyL: 'log', Escape: 'menu', KeyP: 'menu' };
   const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'SELECT'); };
 
   window.addEventListener('keydown', (e) => {

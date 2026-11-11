@@ -14,7 +14,7 @@ map built from the real coastline of the Mediterranean, with 43 places at their 
 - Travel on foot, on horseback (faster on Roman roads) and by galley. Places you have visited can be reached again by fast travel from the map.
 - Solid world: push against a wall to climb it, walk the rooftops, stairs and piers; enemies climb after you.
 - Stealth: enemies only notice what is in their line of sight (or what they hear). Sneak up from behind, or drop from above, to assassinate.
-- Hands-on combat: strike, block, parry, dodge and throw pila. Period weapons, shields, armour and helmets to buy, find and earn.
+- Hands-on combat: strike, block, parry and throw pila. Period weapons, shields, armour and helmets to buy, find and earn.
 - Three save slots plus autosave, and settings for graphics, controls, difficulty and sound.
 
 | Action | Keyboard and mouse / trackpad | Touch |
@@ -25,7 +25,7 @@ map built from the real coastline of the Mediterranean, with 43 places at their 
 | Sneak | C | Mask button |
 | Strike | J or click | Sword button |
 | Block (parry if timed) | K, Shift or right-click | Shield button |
-| Dodge | Space | Arrows button |
+| Jump | Space | Arrows button |
 | Throw pilum, eat bread | F, R | Javelin and bread buttons |
 | Talk, trade, sail | E | Tap the prompt |
 | Horse | H | Horse button |

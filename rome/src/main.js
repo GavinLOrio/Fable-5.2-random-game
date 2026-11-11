@@ -157,8 +157,8 @@ function boot() {
   // gravity and footing: step up small ledges at once, fall off edges
   function settle(b, dt) {
     const g = surfaceAt(allObs, b.x, b.z, b.y, world.getHeight(b.x, b.z));
-    if (b.y > g + 0.06) { b.vy = (b.vy || 0) - 34 * dt; b.y += b.vy * dt; if (b.y <= g) { b.y = g; b.vy = 0; } }
-    else { b.y = g; b.vy = 0; }
+    if (b.y > g + 0.06 || b.vy > 0) { b.vy = (b.vy || 0) - 34 * dt; b.y += b.vy * dt; b.air = true; if (b.y <= g && b.vy <= 0) { b.y = g; b.vy = 0; b.air = false; } }
+    else { b.y = g; b.vy = 0; b.air = false; }
   }
   const climbable = (ob, y) => ob.top - y > STEP && ob.top - y < 70 && (ob.r == null || ob.stand);
   // line of sight between two points, blocked by buildings taller than both
@@ -668,7 +668,7 @@ function boot() {
     if (PL.climb) {   // on a wall: push towards it to go up, pull away to go down, dodge to let go
       const c = PL.climb, into = moving ? -(wx * c.nx + wz * c.nz) : 0;
       PL.facing = Math.atan2(-c.nx, -c.nz); PL.atk = null; PL.blocking = false;
-      if (act('dodge') || PL.stag > 0) { PL.climb = null; PL.x += c.nx * 0.25; PL.z += c.nz * 0.25; PL.vy = 0; }
+      if (act('jump') || PL.stag > 0) { PL.climb = null; PL.x += c.nx * 0.3; PL.z += c.nz * 0.3; PL.vy = PL.stag > 0 ? 0 : 5; sfx.dodge(); }
       else {
         const vy = !moving ? 0 : into > -0.4 ? 4.6 : -5.5;
         PL.y += vy * dt; PL.mv = damp(PL.mv, vy ? 1 : 0, 12, dt); PL.ph += dt * 9 * PL.mv; PL.vy = 0;
@@ -692,6 +692,8 @@ function boot() {
     const wasBlock = PL.blocking;
     PL.blocking = (G.bot ? false : input.block) && !riding && !PL.atk && PL.dodgeT <= 0 && PL.stag <= 0 && PL.st > 0;
     PL.blockT = PL.blocking ? (wasBlock ? PL.blockT + dt : 0) : 0;
+    // jump: Space or the jump button; works on foot and on horseback
+    if (act('jump') && !PL.air && PL.stag <= 0 && PL.dodgeT <= 0) { PL.vy = riding ? 8.5 : 9.4; PL.air = true; sfx.dodge(); }
     if (act('dodge') && PL.dodgeCd <= 0 && PL.st >= 22 && !riding && PL.stag <= 0) {
       PL.dodgeT = 0.34; PL.dodgeCd = 0.62; PL.st -= 24; PL.invuln = Math.max(PL.invuln, 0.32); PL.atk = null; PL.stIdle = 0;
       if (moving) { PL.dx = wx; PL.dz = wz; } else { PL.dx = -Math.sin(PL.facing); PL.dz = -Math.cos(PL.facing); }
@@ -786,9 +788,9 @@ function boot() {
     if (!data) {
       ui.toast('The Die Is Cast', 'January, 49 BC', 4.5);
       ui.hint(isTouch ? 'Drag the left side of the screen to move, and the right side to look around.' : S.look === 'move' ? 'Move with WASD. Click the game once, then just move your finger on the trackpad to look around. Esc frees the pointer.' : 'Move with WASD. Drag the mouse or trackpad to look around.');
-      ui.hint(isTouch ? 'Push against a wall to climb it. Tap the mask button to sneak.' : 'Push against a wall to climb it. Press C to sneak. Enemies only see what is in front of them: strike from behind or from above to assassinate.');
+      ui.hint(isTouch ? 'Push against a wall to climb it, and jump to let go. Tap the mask button to sneak.' : 'Push against a wall to climb it. Press C to sneak. Enemies only see what is in front of them: strike from behind or from above to assassinate.');
       ui.hint('Follow the marker on the compass. A golden light marks who to speak to.');
-      ui.hint(isTouch ? 'In a fight: tap the sword to strike, hold the shield to block, and use the arrows to dodge.' : 'In a fight: J or click to strike, hold K or right-click to block, Space to dodge, F to throw a pilum.');
+      ui.hint(isTouch ? 'In a fight: tap the sword to strike and hold the shield to block. The arrow button jumps.' : 'In a fight: J or click to strike, hold K or right-click to block, F to throw a pilum. Space jumps.');
       save(true);
     }
   }
@@ -878,7 +880,7 @@ function boot() {
     if (mode === 'play') {
       for (const a of ['map', 'bag', 'log', 'menu']) if (input.hit(a)) { input.unlock(); ui.open(a); break; }
       if (mode === 'play') step(dt);
-    } else if (mode === 'dialog') { if (input.hit('interact') || input.hit('attack') || input.hit('dodge')) nextLine(); }
+    } else if (mode === 'dialog') { if (input.hit('interact') || input.hit('attack') || input.hit('jump')) nextLine(); }
     else if (mode === 'ui' && input.hit('menu')) ui.close();
     const vx = mode === 'title' ? world.siteById.roma.x : PL.x, vz = mode === 'title' ? world.siteById.roma.z : PL.z;
     world.streamChunks(vx, vz, 1); world.streamRoads(vx, vz);
