@@ -187,7 +187,7 @@ export function createWorld(scene, opts) {
 
   // ---------- climate + colour ----------
   const P = {
-    med: [lin(0x8f9a4e), lin(0xb3a45c)], north: [lin(0x4f8a3e), lin(0x6c9a48)], desert: [lin(0xe3c78a), lin(0xd6b070)], steppe: [lin(0xb0a068), lin(0xc4b078)],
+    med: [lin(0x7d9a46), lin(0xa8a652)], north: [lin(0x4c8440), lin(0x6a9648)], desert: [lin(0xe3c78a), lin(0xd6b070)], steppe: [lin(0xb0a068), lin(0xc4b078)],
     rock: lin(0x8c857a), rockD: lin(0xb89a70), snow: lin(0xe9eef2), sand: lin(0xe6d7a8), seabed: lin(0x2a5a66), road: lin(0xa39c8e), river: lin(0x3f7f9a), city: lin(0xb9a987),
   };
   const clim = { des: 0, nor: 0 };
@@ -245,7 +245,22 @@ export function createWorld(scene, opts) {
 
   // ---------- chunks ----------
   const chunks = new Map();
-  const terrMat = litMat();
+  // smooth-shaded ground with procedural surface detail so large slopes never look flat
+  const terrMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 });
+  terrMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = 'varying vec3 vWp;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vWp = transformed;');
+    sh.fragmentShader = `varying vec3 vWp;
+      float th(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float tn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(th(i), th(i + vec2(1, 0)), f.x), mix(th(i + vec2(0, 1)), th(i + vec2(1, 1)), f.x), f.y); }
+      ` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float dd = length(cameraPosition - vWp);
+      float big = tn(vWp.xz * 0.045) * 0.6 + tn(vWp.xz * 0.13) * 0.4;
+      float mid = tn(vWp.xz * 0.55), fine = tn(vWp.xz * 2.3) * 0.6 + tn(vWp.xz * 6.1) * 0.4;
+      float det = 0.8 + big * 0.24 + mid * 0.14 * smoothstep(260.0, 40.0, dd) + (fine - 0.5) * 0.22 * smoothstep(70.0, 8.0, dd);
+      diffuseColor.rgb = min(diffuseColor.rgb * det, vec3(0.92));
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.06, 1.0, 0.88), mid * 0.5);`);
+  };
+  terrMat.customProgramCacheKey = () => 'terr';
   const group = new THREE.Group(); scene.add(group);
   const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _col = new THREE.Color(), UP = new THREE.Vector3(0, 1, 0);
   function buildChunk(cx, cz) {
@@ -256,26 +271,25 @@ export function createWorld(scene, opts) {
     const ch = { key, cx, cz, mesh: null, props: [], obs: [] };
     chunks.set(key, ch);
     if (!land) return ch;
-    const pos = new Float32Array(CN * CN * 18), col = new Float32Array(CN * CN * 18);
-    let p = 0;
-    const tri = (ax, ay, az, bx, by, bz, qx, qy, qz) => {
-      if (ay < -6 && by < -6 && qy < -6) return;
-      const ux = bx - ax, uy = by - ay, uz = bz - az, vx = qx - ax, vy = qy - ay, vz = qz - az;
-      const nx = uy * vz - uz * vy, nyy = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-      const cc = colorAt((ax + bx + qx) / 3, (az + bz + qz) / 3, (ay + by + qy) / 3, nyy / Math.hypot(nx, nyy, nz), rng(), c);
-      pos[p] = ax; pos[p + 1] = ay; pos[p + 2] = az; pos[p + 3] = bx; pos[p + 4] = by; pos[p + 5] = bz; pos[p + 6] = qx; pos[p + 7] = qy; pos[p + 8] = qz;
-      for (let k = 0; k < 9; k += 3) { col[p + k] = cc[0]; col[p + k + 1] = cc[1]; col[p + k + 2] = cc[2]; }
-      p += 9;
-    };
+    const pos = new Float32Array(NV * NV * 3), col = new Float32Array(NV * NV * 3), nrm = new Float32Array(NV * NV * 3), idx = [];
+    for (let j = 0; j < NV; j++) for (let i = 0; i < NV; i++) {
+      const k = j * NV + i, x = x0 + i * CELL, z = z0 + j * CELL, y = h[k];
+      const hl = i > 0 ? h[k - 1] : getHeight(x - CELL, z), hr = i < CN ? h[k + 1] : getHeight(x + CELL, z), hu = j > 0 ? h[k - NV] : getHeight(x, z - CELL), hd = j < CN ? h[k + NV] : getHeight(x, z + CELL);
+      let nx = hl - hr, ny = 2 * CELL, nz = hu - hd; const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
+      const cc = colorAt(x, z, y, ny, 0.5, c);
+      pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z; nrm[k * 3] = nx; nrm[k * 3 + 1] = ny; nrm[k * 3 + 2] = nz;
+      col[k * 3] = cc[0]; col[k * 3 + 1] = cc[1]; col[k * 3 + 2] = cc[2];
+    }
     for (let j = 0; j < CN; j++) for (let i = 0; i < CN; i++) {
-      const xa = x0 + i * CELL, za = z0 + j * CELL, xb = xa + CELL, zb = za + CELL, k = j * NV + i;
-      tri(xa, h[k], za, xa, h[k + NV], zb, xb, h[k + 1], za);
-      tri(xb, h[k + 1], za, xa, h[k + NV], zb, xb, h[k + NV + 1], zb);
+      const k = j * NV + i;
+      if (h[k] < -6 && h[k + 1] < -6 && h[k + NV] < -6 && h[k + NV + 1] < -6) continue;
+      idx.push(k, k + NV, k + 1, k + 1, k + NV, k + NV + 1);
     }
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos.subarray(0, p), 3));
-    g.setAttribute('color', new THREE.BufferAttribute(col.subarray(0, p), 3));
-    g.computeVertexNormals(); g.computeBoundingSphere();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    g.setIndex(idx); g.computeBoundingSphere();
     ch.mesh = new THREE.Mesh(g, terrMat); ch.mesh.receiveShadow = true; group.add(ch.mesh);
     // props
     const lists = {};
@@ -336,7 +350,7 @@ export function createWorld(scene, opts) {
     for (const ch of chunks.values()) if (Math.abs(ch.cx - pcx) > R + 1 || Math.abs(ch.cz - pcz) > R + 1) dropChunk(ch);
     return pending > 0;
   }
-  function rebuildAll() { for (const ch of [...chunks.values()]) dropChunk(ch); }
+  function rebuildAll() { for (const ch of [...chunks.values()]) dropChunk(ch); gcx = 1e9; }
 
   // push a circle out of tree / rock obstacles
   function collideProps(o, r) {
@@ -353,6 +367,58 @@ export function createWorld(scene, opts) {
     const c = ctxFor(Math.floor(x / CS), Math.floor(z / CS));
     let d = 1e9; for (const s of c.roads) d = Math.min(d, segDist(x, z, s));
     return d;
+  }
+
+  // ---------- grass around the player ----------
+  const grassGeo = new THREE.BufferGeometry();
+  {
+    const gp = [], gc = [];
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * TAU + 0.3, ca = Math.cos(a), sa = Math.sin(a), bx = ca * 0.16, bz = sa * 0.16, px = -sa * 0.07, pz = ca * 0.07, hh = 0.55 + (k % 3) * 0.2;
+      gp.push(bx - px, 0, bz - pz, bx + px, 0, bz + pz, bx + ca * 0.34, hh, bz + sa * 0.34, bx + px, 0, bz + pz, bx - px, 0, bz - pz, bx + ca * 0.34, hh, bz + sa * 0.34);
+      for (let r = 0; r < 2; r++) gc.push(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1);
+    }
+    grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3)); grassGeo.setAttribute('color', new THREE.Float32BufferAttribute(gc, 3));
+    const gn = new Float32Array(gp.length); for (let i = 1; i < gn.length; i += 3) gn[i] = 1; grassGeo.setAttribute('normal', new THREE.BufferAttribute(gn, 3));
+  }
+  const windU = { value: 0 };
+  const grassMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
+  grassMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = windU;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+        float ph = instanceMatrix[3].x * 0.31 + instanceMatrix[3].z * 0.23;
+        transformed.x += sin(uTime * 1.6 + ph) * 0.2 * transformed.y; transformed.z += cos(uTime * 1.25 + ph * 1.3) * 0.13 * transformed.y;
+      #endif`);
+  };
+  grassMat.customProgramCacheKey = () => 'grass';
+  const GMAX = 5200, grass = new THREE.InstancedMesh(grassGeo, grassMat, GMAX);
+  grass.count = 0; grass.frustumCulled = false; grass.receiveShadow = true; scene.add(grass);
+  for (let i = 0; i < GMAX; i++) grass.setColorAt(i, _col.setRGB(1, 1, 1));
+  let gcx = 1e9, gcz = 1e9;
+  const h2 = (a, b, s) => { let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ Math.imul(s, 974634777); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  function updateGrass(px, pz, force) {
+    if (!force && Math.abs(px - gcx) < 10 && Math.abs(pz - gcz) < 10) return;
+    gcx = px; gcz = pz;
+    const step = 1.9, R = opts.foliage < 0.5 ? 34 : opts.foliage < 0.9 ? 50 : 62, i0 = Math.floor((px - R) / step), i1 = Math.floor((px + R) / step), j0 = Math.floor((pz - R) / step), j1 = Math.floor((pz + R) / step);
+    const c = ctxFor(Math.floor(px / CS), Math.floor(pz / CS));
+    let n = 0;
+    for (let j = j0; j <= j1 && n < GMAX; j++) for (let i = i0; i <= i1 && n < GMAX; i++) {
+      const x = (i + h2(i, j, 1)) * step, z = (j + h2(i, j, 2)) * step, d = Math.hypot(x - px, z - pz);
+      if (d > R) continue;
+      const y = getHeight(x, z);
+      if (y < 1.4 || y > 66) continue;
+      genHeight(x, z, Math.floor(x / CS) === Math.floor(px / CS) && Math.floor(z / CS) === Math.floor(pz / CS) ? c : ctxFor(Math.floor(x / CS), Math.floor(z / CS)));
+      if (info.site > 0.04 || info.road < 3.6 || info.river < 3) continue;
+      climate(x, z, info.f);
+      const lush = clim.des > 0.4 ? (info.river < 55 ? 0.7 : 0.04) : 0.5 + clim.nor * 0.4;
+      if (h2(i, j, 3) > lush) continue;
+      const s = (0.45 + h2(i, j, 4) * 0.6) * smoothstep(R, R * 0.7, d), k = 0.75 + h2(i, j, 5) * 0.4;
+      grass.setMatrixAt(n, _m.compose(_p.set(x, y - 0.04, z), _q.setFromAxisAngle(UP, h2(i, j, 6) * TAU), _s.set(s, s * (0.8 + h2(i, j, 7) * 0.7), s)));
+      const dry = (1 - clim.nor) * (0.4 + 0.6 * h2(i, j, 8));
+      grass.setColorAt(n++, _col.setRGB(lerp(0.17, 0.46, dry) * k, lerp(0.42, 0.46, dry) * k, lerp(0.13, 0.18, dry) * k));
+    }
+    grass.count = n; grass.instanceMatrix.needsUpdate = true; grass.instanceColor.needsUpdate = true;
   }
 
   // ---------- road ribbons ----------
@@ -426,9 +492,12 @@ export function createWorld(scene, opts) {
   // ---------- sky + lights ----------
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
-    uniforms: { uTop: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uStars: { value: 0 }, uTime: { value: 0 }, uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color() }, uMoon: { value: 0 } },
+    uniforms: { uTop: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uStars: { value: 0 }, uTime: { value: 0 }, uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color() }, uMoon: { value: 0 }, uCloud: { value: new THREE.Color(1, 1, 1) } },
     vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: `uniform vec3 uTop, uHor, uSunDir, uSunCol; uniform float uStars, uTime, uMoon; varying vec3 vD;
+    fragmentShader: `uniform vec3 uTop, uHor, uSunDir, uSunCol, uCloud; uniform float uStars, uTime, uMoon; varying vec3 vD;
+      float ch(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float cn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(ch(i), ch(i + vec2(1, 0)), f.x), mix(ch(i + vec2(0, 1)), ch(i + vec2(1, 1)), f.x), f.y); }
+      float cf(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * cn(p); p = p * 2.03 + 7.3; a *= 0.5; } return s; }
       float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
       void main(){
         vec3 d = normalize(vD);
@@ -437,6 +506,10 @@ export function createWorld(scene, opts) {
         col += vec3(0.9, 0.95, 1.2) * step(0.992, r) * smoothstep(0.32, 0.0, length(fract(sp) - 0.5)) * (0.55 + 0.45 * sin(uTime * 2.0 + r * 400.0)) * uStars * smoothstep(0.02, 0.3, d.y) * 2.0;
         float s = max(dot(d, uSunDir), 0.0);
         col += uSunCol * (pow(s, 8.0) * 0.25 + pow(s, 90.0) * 0.5 + smoothstep(0.9988, 0.9993, s) * 3.0) * (1.0 - uMoon);
+        vec2 cuv = d.xz / (max(d.y, 0.0) + 0.16) * 1.1 + vec2(uTime * 0.006, uTime * 0.002);
+        float cl = cf(cuv), cover = smoothstep(0.46, 0.74, cl) * smoothstep(0.015, 0.2, d.y);
+        vec3 ccol = mix(uCloud * 0.72, uCloud * 1.08, smoothstep(0.5, 0.95, cl + (cf(cuv + uSunDir.xz * 0.12) - cl) * -2.0));
+        col = mix(col, ccol + uSunCol * pow(s, 6.0) * 0.12 * (1.0 - uMoon), cover * 0.9);
         float m = max(dot(d, -uSunDir), 0.0);
         col += uMoon * (smoothstep(0.9984, 0.9988, m) * vec3(1.4, 1.5, 1.8) + pow(m, 200.0) * vec3(0.3, 0.4, 0.7) * 0.5);
         gl_FragColor = vec4(col, 1.0);
@@ -447,7 +520,7 @@ export function createWorld(scene, opts) {
   const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 1);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-  const sc = sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 1; sc.far = 420;
+  const sc = sun.shadow.camera; sc.left = -90; sc.right = 90; sc.top = 90; sc.bottom = -90; sc.near = 1; sc.far = 420;
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.5;
   scene.add(sun, sun.target);
   scene.fog = new THREE.FogExp2(0xbfd4e6, 0.002);
@@ -476,6 +549,7 @@ export function createWorld(scene, opts) {
     skyMat.uniforms.uSunDir.value.copy(sunDir); skyMat.uniforms.uSunCol.value.copy(sun.color);
     skyMat.uniforms.uStars.value = wn; skyMat.uniforms.uMoon.value = wn;
     state.exposure = num('exp'); state.night = wn;
+    skyMat.uniforms.uCloud.value.copy(scene.fog.color).lerp(cA.setRGB(1, 1, 1), 0.2 + 0.7 * wd).multiplyScalar(1 - wn * 0.45);
     scene.fog.density = opts.fog;
     const wu = waterMat.uniforms;
     wu.uFog.value.copy(scene.fog.color); wu.uFogD.value = scene.fog.density;
@@ -490,7 +564,7 @@ export function createWorld(scene, opts) {
     state.tod = (state.tod + gameDt / 1200) % 1;       // one day lasts twenty minutes
     if (state.tod > 0.8 || state.tod < 0.2) state.tod = (state.tod + gameDt / 1200) % 1; // nights pass twice as fast
     skyT -= dt; if (skyT <= 0) { skyT = 0.25; applySky(); }
-    waterMat.uniforms.uTime.value = time; skyMat.uniforms.uTime.value = time;
+    waterMat.uniforms.uTime.value = time; skyMat.uniforms.uTime.value = time; windU.value = time; updateGrass(px, pz);
     sky.position.copy(camera.position);
     water.position.set(Math.round(px / 64) * 64, 0, Math.round(pz / 64) * 64);
     const sx = Math.round(px / 4) * 4, sz = Math.round(pz / 4) * 4;

@@ -16,10 +16,10 @@ import { createUI } from './ui.js';
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
-const SET_KEY = 'aquila-settings-v1', slotKey = (n) => 'aquila-slot-' + n;
+const SET_KEY = 'aquila-settings-v2', slotKey = (n) => 'aquila-slot-' + n;
 const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } } };
-const PRESET = { low: { res: 0.8, shadows: false, bloom: false, view: 2, foliage: 0.4 }, med: { res: 1, shadows: true, bloom: false, view: 3, foliage: 0.7 }, high: { res: 1, shadows: true, bloom: true, view: 4, foliage: 1 } };
-const S = Object.assign({ quality: isTouch ? 'low' : 'med', ...PRESET[isTouch ? 'low' : 'med'], autoRes: true, sens: 1, invertY: false, autoCam: true, master: 0.8, music: 0.5, sfx: 0.9, difficulty: 'normal', hud: 1, fps: false, numbers: true }, store.get(SET_KEY) || {});
+const PRESET = { low: { res: 0.7, shadows: false, bloom: false, view: 2, foliage: 0.4 }, med: { res: 0.85, shadows: true, bloom: true, view: 3, foliage: 0.7 }, high: { res: 1, shadows: true, bloom: true, view: 4, foliage: 1 } };
+const S = Object.assign({ quality: isTouch ? 'med' : 'high', ...PRESET[isTouch ? 'med' : 'high'], autoRes: true, sens: 1, invertY: false, autoCam: true, master: 0.8, music: 0.5, sfx: 0.9, difficulty: 'normal', hud: 1, fps: false, numbers: true }, store.get(SET_KEY) || {});
 const DIFF = { easy: { hp: 0.8, dmg: 0.6 }, normal: { hp: 1, dmg: 1 }, hard: { hp: 1.25, dmg: 1.4 } };
 const MILE = 3.39; // world units per Roman mile
 
@@ -35,14 +35,14 @@ function boot() {
   const world = createWorld(scene, wopts);
   const fx = createFx(scene, camera);
   const input = createInput(canvas);
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: isTouch ? 0 : 4, stencilBuffer: true }));
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true }));
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.7, 0.95);
   composer.addPass(bloom); composer.addPass(new OutputPass());
   let W = 1, H = 1, dynRes = 1;
   function resize() {
     W = window.innerWidth; H = window.innerHeight;
-    const pr = Math.max(0.5, Math.min(window.devicePixelRatio || 1, 1.5) * S.res * dynRes);
+    const pr = Math.max(0.5, Math.min(window.devicePixelRatio || 1, 2) * S.res * dynRes);
     renderer.setPixelRatio(pr); renderer.setSize(W, H, false); composer.setPixelRatio(pr); composer.setSize(W, H);
     camera.aspect = W / H; camera.fov = W < H ? 62 : 50; camera.updateProjectionMatrix();
     fx.setScale((H * pr) / (2 * Math.tan((camera.fov * Math.PI) / 360)));
@@ -147,7 +147,7 @@ function boot() {
   const beamGeo = new THREE.CylinderGeometry(0.5, 0.5, 30, 8, 1, true); beamGeo.translate(0, 15, 0);
   const beamMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.9, 0.3), transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const findMark = new THREE.Group(); findMark.add(new THREE.Mesh(beamGeo, beamMat), new THREE.Mesh(markerGeo, markerMat)); findMark.children[1].position.y = 1.4; findMark.children[1].scale.setScalar(1.6); findMark.visible = false; scene.add(findMark);
-  const objBeam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 0.7, 0.25), transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })); objBeam.scale.set(2.2, 9, 2.2); objBeam.visible = false; scene.add(objBeam);
+  const objBeam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 0.7, 0.25), transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })); objBeam.scale.set(1.1, 9, 1.1); objBeam.visible = false; scene.add(objBeam);
   // arrows / javelins
   const shotGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 4); shotGeo.rotateX(Math.PI / 2);
   const shotMesh = new THREE.InstancedMesh(shotGeo, new THREE.MeshBasicMaterial({ color: 0x3a2a1a }), 40); shotMesh.count = 0; shotMesh.frustumCulled = false; scene.add(shotMesh);
@@ -717,7 +717,7 @@ function boot() {
     }
     drawFoes();
     const tt = mode === 'title' ? null : trackedTarget();
-    objBeam.visible = !!tt && Math.hypot(tt.x - PL.x, tt.z - PL.z) > 14;
+    objBeam.visible = !!tt && Math.hypot(tt.x - PL.x, tt.z - PL.z) > 45;
     if (objBeam.visible) objBeam.position.set(tt.x, world.getHeight(tt.x, tt.z), tt.z);
     return tt;
   }

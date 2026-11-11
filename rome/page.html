@@ -67,7 +67,7 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
 #toast { top: 21%; left: 50%; transform: translateX(-50%); width: min(92vw, 760px); text-align: center; opacity: 0; transition: opacity 0.5s; font: 800 clamp(22px, 4.4vw, 42px) var(--display); letter-spacing: 0.14em; color: var(--parch); text-shadow: 0 0 22px rgba(217, 173, 78, 0.5), 0 3px 10px #000; text-wrap: balance; }
 #toast small { display: block; margin-top: 6px; font: 700 clamp(11px, 1.5vw, 14px) var(--body); letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); }
 #toast.on { opacity: 1; }
-#notes { left: var(--sl); top: calc(var(--st) + 86px); display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+#notes { left: var(--sl); top: calc(var(--st) + 86px); max-width: min(46vw, 420px); display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 #notes div { padding: 4px 10px; border-radius: 6px; background: rgba(18, 13, 8, 0.7); border-left: 3px solid var(--gold); font-size: 13.5px; font-weight: 700; animation: note 4s forwards; }
 @keyframes note { 0% { opacity: 0; transform: translateX(-10px); } 8% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
 #foe { top: calc(var(--st) + 64px); left: 50%; transform: translateX(-50%); width: min(60vw, 420px); text-align: center; font: 800 13px var(--display); letter-spacing: 0.12em; }
@@ -78,6 +78,7 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
 #dmg { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .dn { position: absolute; left: 0; top: 0; display: none; font: 700 16px var(--body); color: #fff; text-shadow: 0 1px 3px #000; will-change: transform; }
 .dn.crit { font-size: 22px; color: var(--gold); } .dn.heal { color: #9be07a; } .dn.hurt { color: #ff6a5a; } .dn.xp { color: #9fd0ff; font-size: 13px; }
+#grade { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(20, 12, 4, 0.34) 100%); }
 #vignette, #fade { position: fixed; inset: 0; pointer-events: none; opacity: 0; }
 #vignette { background: radial-gradient(ellipse at center, transparent 45%, rgba(170, 20, 15, 0.65) 100%); }
 #fade { background: #000; transition: opacity 0.35s; } #fade.on { opacity: 1; }
@@ -141,13 +142,15 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
 .keys b { font: 800 12px var(--display); letter-spacing: 0.06em; color: var(--red); white-space: nowrap; }
 @media (max-width: 640px) and (orientation: portrait) {
   #compass { top: calc(var(--st) + 86px); width: 88vw; }
-  #notes { top: calc(var(--st) + 150px); }
-  #foe { top: calc(var(--st) + 150px); }
+  #notes { top: calc(var(--st) + 190px); max-width: 88vw; }
+  #foe { top: calc(var(--st) + 150px); width: 88vw; }
   #toast { top: 30%; }
   .set { grid-template-columns: 1fr; gap: 3px; }
 }
 @media (max-height: 480px) {
-  #toast { top: 26%; font-size: 24px; }
+  #toast { top: 36%; font-size: 24px; }
+  #notes { max-width: 30vw; } #notes div { font-size: 12px; }
+  #foe { width: min(36vw, 420px); }
   #title h1 { font-size: 54px; } .ov { gap: 8px; } .btn { padding: 9px 18px; }
   #dialog { padding: 9px 14px 8px; } #dtext { font-size: 15px; min-height: 2.6em; }
   #mapCard p { font-size: 13px; }
@@ -157,6 +160,7 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
 
 <canvas id="c" tabindex="0"></canvas>
 
+<div id="grade"></div>
 <div id="hud" hidden>
   <div id="bars">
     <div id="lvl">1</div>

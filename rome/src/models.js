@@ -92,7 +92,7 @@ export function makeHuman(look = {}) {
   return { g, body, legL, legR, armR, armL, look: L, parts: [body, legL, legR, armR, armL], ghost: null };
 }
 export function addGhost(h) {
-  h.ghost = h.parts.map((m) => { const q = new THREE.Mesh(m.geometry, ghostMat); q.renderOrder = 5; m.add(q); return q; });
+  h.ghost = [h.body, h.armR, h.armL].map((m) => { const q = new THREE.Mesh(m.geometry, ghostMat); q.renderOrder = 5; m.add(q); return q; });
 }
 export function setFlash(h, on) { const m = on ? flashMat : charMat; for (const p of h.parts) p.material = m; }
 export function disposeHuman(h) { h.g.removeFromParent(); }
@@ -160,7 +160,7 @@ export function makeShip() {
   p.push(part(box(1.6, 1.2, 1.8), 0x8a6a40, T(0, 1.4, -5.6)), part(box(1.8, 0.1, 2.0), 0x9a2a20, T(0, 2.05, -5.6)));
   const body = new THREE.Mesh(mergeGeometries(p), charMat); body.castShadow = true; body.renderOrder = 2;
   const sg = new THREE.PlaneGeometry(6.4, 5.4, 6, 5).toNonIndexed();
-  { const a = sg.attributes.position, c = new Float32Array(a.count * 3); for (let i = 0; i < a.count; i++) { const x = a.getX(i), y = a.getY(i); a.setZ(i, Math.cos(x / 3.2 * 1.4) * 0.9 * (0.6 + 0.4 * Math.cos(y / 2.7 * 1.2))); } for (let i = 0; i < a.count; i += 3) { const y = (a.getY(i) + a.getY(i + 1) + a.getY(i + 2)) / 3, red = Math.abs(y) < 0.55 || Math.abs(y - 1.9) < 0.3 || Math.abs(y + 1.9) < 0.3; const col = new THREE.Color(red ? 0xa82a20 : 0xe9dfc6); for (let k = 0; k < 3; k++) c.set([col.r, col.g, col.b], (i + k) * 3); } sg.setAttribute('color', new THREE.BufferAttribute(c, 3)); sg.deleteAttribute('uv'); sg.computeVertexNormals(); }
+  { const a = sg.attributes.position, c = new Float32Array(a.count * 3); for (let i = 0; i < a.count; i++) { const x = a.getX(i), y = a.getY(i); a.setZ(i, Math.cos(x / 3.2 * 1.4) * 0.9 * (0.6 + 0.4 * Math.cos(y / 2.7 * 1.2))); } for (let i = 0; i < a.count; i += 3) { const q = i - (i % 6), y = (a.getY(q) + a.getY(q + 1) + a.getY(q + 2) + a.getY(q + 3) + a.getY(q + 4) + a.getY(q + 5)) / 6, red = Math.abs(y) < 0.55 || Math.abs(y - 1.9) < 0.3 || Math.abs(y + 1.9) < 0.3; const col = new THREE.Color(red ? 0xa82a20 : 0xe9dfc6); for (let k = 0; k < 3; k++) c.set([col.r, col.g, col.b], (i + k) * 3); } sg.setAttribute('color', new THREE.BufferAttribute(c, 3)); sg.deleteAttribute('uv'); sg.computeVertexNormals(); }
   const sailMat = litMat({ side: THREE.DoubleSide });
   const sail = new THREE.Mesh(sg, sailMat); sail.position.set(0, 5.5, 1.25); sail.castShadow = true;
   const oarGeo = (sx) => mergeGeometries(Array.from({ length: 9 }, (_, i) => part(box(3.6, 0.07, 0.12), 0xb89a6a, T(sx * 1.9, -0.1, -5.2 + i * 1.25))));

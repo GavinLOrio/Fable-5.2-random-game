@@ -31,7 +31,14 @@ export function buildCity(site, world, reserved) {
     B(w, h, d, col, x, h / 2, z, ry);
     if (flatRoof) { B(w + 0.4, 0.35, d + 0.4, st.roof, x, h + 0.17, z, ry); if (rng() < 0.4) B(w * 0.4, 1.4, d * 0.4, col, x + Math.cos(ry) * w * 0.2, h + 0.9, z - Math.sin(ry) * w * 0.2, ry); }
     else P.push(part(new THREE.ConeGeometry(0.7071, 1, 4), st.roof, T(x, h + (1.2 + h * 0.12) / 2, z, w * 1.12, 1.2 + h * 0.12, d * 1.12, 0, ry + Math.PI / 4, 0)));
-    B(0.9, 1.7, 0.2, 0x4a3524, x + Math.sin(ry) * (d / 2), 0.85, z + Math.cos(ry) * (d / 2), ry);
+    const cs = Math.cos(ry), sn = Math.sin(ry), L = (lx, lz) => [x + lx * cs + lz * sn, z - lx * sn + lz * cs];
+    B(w + 0.24, 0.55, d + 0.24, st.stone, x, 0.27, z, ry);
+    { const [px, pz] = L(w * 0.18, d / 2 + 0.04); B(0.95, 1.8, 0.14, 0x4a3524, px, 0.9, pz, ry); B(1.25, 0.16, 0.2, st.stone, px, 1.9, pz, ry); }
+    for (let fl = 0; fl < (h > 6.5 ? 2 : 1); fl++) {
+      const wy = h > 6.5 ? h * (0.42 + fl * 0.36) : h * 0.66;
+      for (const lz of [d / 2 + 0.03, -d / 2 - 0.03]) for (const lx of [-w * 0.26, w * 0.26]) { if (lz > 0 && lx > 0 && fl === 0) continue; const [px, pz] = L(lx, lz); B(0.62, 0.8, 0.1, 0x2a2018, px, wy, pz, ry); B(0.82, 0.1, 0.16, 0x6b4a2f, px, wy - 0.46, pz, ry); }
+      for (const lx of [w / 2 + 0.03, -w / 2 - 0.03]) { const [px, pz] = L(lx, 0); B(0.1, 0.8, 0.62, 0x2a2018, px, wy, pz, ry); }
+    }
     ob(x, z, w / 2, d / 2, ry, h + 1.6);
   }
   function temple(x, z, w, d, h, ry, cols = 6, col = MARBLE, roof = st.roof) {
