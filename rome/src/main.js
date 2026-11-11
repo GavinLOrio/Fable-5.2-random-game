@@ -107,7 +107,12 @@ function boot() {
     let p = posCache.get(key);
     if (!p) {
       const off = st.off || defOff || [0, 0];
-      if (typeof st.at === 'string') { const s = world.siteById[st.at]; p = snapWalk(s.x + off[0], s.z + off[1]); }
+      if (typeof st.at === 'string') {
+        const s = world.siteById[st.at]; let x = s.x + off[0], z = s.z + off[1];
+        // keep people and objectives on firm ground, not on the beach
+        if (world.landF(x, z) < 0.66) { let ok = false; for (let r = 4; r < 80 && !ok; r += 4) for (let a = 0; a < TAU; a += 4 / r) { const qx = x + Math.cos(a) * r, qz = z + Math.sin(a) * r; if (world.landF(qx, qz) >= 0.68 && Math.hypot(qx - s.x, qz - s.z) < Math.max(s.r, Math.hypot(off[0], off[1])) + 4) { x = qx; z = qz; ok = true; break; } } }
+        p = snapWalk(x, z);
+      }
       else p = snapWalk(toX(st.at[1]) + off[0], toZ(st.at[0]) + off[1]);
       posCache.set(key, p);
     }
@@ -664,6 +669,12 @@ function boot() {
       const behind = (Math.sin(f.facing) * dx + Math.cos(f.facing) * dz) / d < 0.3;
       if ((d < 2.7 && Math.abs(up) < 1.2 && behind) || (up > 1.6 && up < 14 && d < 4.8)) { prompt = { text: up > 1.6 ? 'Assassinate from above' : 'Assassinate', kill: true, fn: () => assassinate(f) }; return; }
     }
+    if (PL.ship) {
+      if (PL.shipPos && Math.hypot(PL.shipPos.x - PL.x, PL.shipPos.z - PL.z) < 8.5 && PL.y > 0.6) { prompt = { text: 'Set sail', fn: () => embark(null) }; return; }
+      const s = world.nearestSite(PL.x, PL.z, (p) => p.port);
+      if (s && ((Math.hypot(s.dock.x - PL.x, s.dock.z - PL.z) < 4.5 && !npcs.some((n) => Math.hypot(n.x - PL.x, n.z - PL.z) < 2.2)) || (s.pierEnd && Math.hypot(s.pierEnd.x - PL.x, s.pierEnd.z - PL.z) < 9 && Math.abs(PL.y - 1.6) < 0.4 && world.getHeight(PL.x, PL.z) < 1.2))) { prompt = { text: 'Set sail', fn: () => embark(s) }; return; }
+      if (PL.shipPos && Math.hypot(PL.shipPos.x - PL.x, PL.shipPos.z - PL.z) < 22 && !npcs.some((n) => Math.hypot(n.x - PL.x, n.z - PL.z) < 3.6 && !(n.stale && n.d.kind !== 'shop'))) { prompt = { text: 'Board your ship', fn: () => embark(null) }; return; }
+    }
     let best = null, bd = 3.6;
     for (const n of npcs) { const d = Math.hypot(n.x - PL.x, n.z - PL.z); if (d < bd && !(n.stale && n.d.kind !== 'shop')) { bd = d; best = n; } }
     if (best) {
@@ -675,12 +686,6 @@ function boot() {
     for (const c of camps) if (c.mesh && !campsDone.has(c.i) && Math.hypot(c.x - PL.x, c.z - 1 - PL.z) < 3.4) {
       if (foes.some((f) => f.group === 'camp' + c.i && !f.dead)) { prompt = { text: 'Defeat the bandits first', fn: () => {} }; return; }
       prompt = { text: 'Open the strongbox', fn: () => { campsDone.add(c.i); PL.den += c.den; sfx.coin(); sfx.step(); ui.note(`+${c.den} denarii`); if (c.reward && !PL.owned.includes(c.reward)) { PL.owned.push(c.reward); ui.note(`Found: ${ITEMS[c.reward].name}`); autoEquip(c.reward); } gainXp(60); save(true); } }; return;
-    }
-    if (PL.ship) {
-      if (PL.shipPos && Math.hypot(PL.shipPos.x - PL.x, PL.shipPos.z - PL.z) < 8.5 && PL.y > 0.6) { prompt = { text: 'Set sail', fn: () => embark(null) }; return; }
-      const s = world.nearestSite(PL.x, PL.z, (p) => p.port);
-      if (s && (Math.hypot(s.dock.x - PL.x, s.dock.z - PL.z) < 7 || (s.pierEnd && Math.hypot(s.pierEnd.x - PL.x, s.pierEnd.z - PL.z) < 9))) { prompt = { text: 'Set sail', fn: () => embark(s) }; return; }
-      if (PL.shipPos && Math.hypot(PL.shipPos.x - PL.x, PL.shipPos.z - PL.z) < 22) { prompt = { text: 'Board your ship', fn: () => embark(null) }; return; }
     }
   }
   function talk(n) {
@@ -886,6 +891,7 @@ function boot() {
       ui.hint(isTouch ? 'Drag the left side of the screen to move, and the right side to look around.' : S.look === 'move' ? 'Move with WASD. Click the game once, then just move your finger on the trackpad to look around. Esc frees the pointer.' : 'Move with WASD. Drag the mouse or trackpad to look around.');
       ui.hint(isTouch ? 'Push against a wall to climb it, and jump to let go. Tap the mask button to sneak.' : 'Push against a wall to climb it. Press C to sneak. Enemies only see what is in front of them: strike from behind or from above to assassinate.');
       ui.hint('Follow the marker on the compass. A golden light marks who to speak to.');
+      ui.hint('The map, your gear and your quests share one menu: press M, I, L or Esc' + (isTouch ? ', or use the buttons at the top right.' : '.') + ' You can swim: just walk into the water.');
       ui.hint(isTouch ? 'In a fight: tap the sword to strike and hold the shield to block. The arrow button jumps.' : 'In a fight: J or click to strike, hold K or right-click to block, F to throw a pilum. Space jumps.');
       save(true);
     }
@@ -996,7 +1002,7 @@ function boot() {
     if (raw < 0.25) {
       perfT += raw; perfN++; fpsT += raw; fpsN++;
       if (fpsT > 0.5) { if (S.fps) $('fps').textContent = Math.round(fpsN / fpsT) + ' fps'; fpsT = 0; fpsN = 0; }
-      if (perfT > 2.5) { if (perfSkip > 0) perfSkip--; else if (S.autoRes) { const ft = perfT / perfN; if (ft > 1 / 36 && dynRes > 0.55) { dynRes = Math.max(0.55, dynRes - 0.12); resize(); perfSkip = 1; } else if (ft < 1 / 56 && dynRes < 1) { dynRes = Math.min(1, dynRes + 0.06); resize(); perfSkip = 2; } } perfT = 0; perfN = 0; }
+      if (perfT > 2.5) { if (perfSkip > 0) perfSkip--; else if (S.autoRes) { const ft = perfT / perfN; if (ft > 1 / 36 && dynRes > 0.55) { dynRes = Math.max(0.55, dynRes - 0.12); resize(); perfSkip = 1; } else if (ft > 1 / 30 && dynRes <= 0.56 && S.ao) { S.ao = false; gtao.enabled = false; S.quality = 'custom'; store.set(SET_KEY, S); ui.note('Ambient occlusion was turned off to keep the game smooth'); perfSkip = 1; } else if (ft < 1 / 56 && dynRes < 1) { dynRes = Math.min(1, dynRes + 0.06); resize(); perfSkip = 2; } } perfT = 0; perfN = 0; }
     }
   }
 

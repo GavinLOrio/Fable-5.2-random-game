@@ -8,9 +8,11 @@ This repository holds two separate 3D games. Each is a single self-contained HTM
 # Aquila
 
 You are a courier in Caesar's Thirteenth Legion. Follow the civil war from the Rubicon to the Ides of March across a
-map built from the real coastline of the Mediterranean, with 43 places at their true positions.
+map built from real coastlines, from Britain to Upper Egypt and from Spain to Mesopotamia, with 103 places at their true positions.
 
-- Main story in eight chapters with historical figures, plus ten side quests and sixteen bandit camps.
+- Main story in eight chapters with historical figures, plus ten side quests.
+- World activities: 28 enemy outposts to clear, 20 watchtowers to climb and survey from, 18 sunken wrecks to dive for, 12 beast hunts and 16 bandit camps.
+- Swimming, and one tabbed menu for map, gear, quests and system.
 - Travel on foot, on horseback (faster on Roman roads) and by galley. Places you have visited can be reached again by fast travel from the map.
 - Solid world: push against a wall to climb it, walk the rooftops, stairs and piers; enemies climb after you.
 - Stealth: enemies only notice what is in their line of sight (or what they hear). Sneak up from behind, or drop from above, to assassinate.

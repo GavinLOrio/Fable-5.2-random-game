@@ -124,7 +124,7 @@ export function poseHuman(h, st) {
   let sRx = -0.32 + s * 0.38 * mv, sRy = 0, sRz = 0.06, eR = -0.8 - 0.15 * mv;
   let sLx = -0.05 - s * 0.6 * mv, sLy = 0, sLz = -0.06, eL = -0.25 - 0.45 * mv - Math.max(0, -s) * 0.3 * mv;
   let lean = 0.11 * mv + br * 0.012, twist = s * 0.11 * mv, roll = c * 0.025 * mv, drop = (Math.cos(t * 2) * 0.5 - 0.5) * 0.055 * mv, gx = 0, gz = 0;
-  if (h.shielded) { sLx = -0.3 - s * 0.18 * mv; sLy = 0.3; eL = -0.95; }
+  if (h.shielded) { sLx = -0.42 - s * 0.16 * mv; sLy = 0.25; eL = -0.38; }
   if (st.sneak) { lean += 0.45; drop -= 0.17; tL -= 0.78; tR -= 0.78; kL += 1.25; kR += 1.25; sRx -= 0.2; eL -= 0.3; }
   if (st.ride) { tL = tR = -1.32; zL = -0.42; zR = 0.42; kL = kR = 1.25; sRx = -0.75; eR = -0.85; sLx = -0.75; sLy = 0; eL = -0.85; lean = 0.06 + mv * 0.12; twist = 0; roll = 0; drop = 0; }
   if (st.air) { tL = -1.0; tR = -0.3; kL = 1.35; kR = 0.75; sRx = -1.5; sLx = -1.5; sRz = 0.7; sLz = -0.7; eR = eL = -0.45; lean = 0.15; twist = 0; }
@@ -139,7 +139,7 @@ export function poseHuman(h, st) {
     tL += -0.5 * e + 0.2 * back; kL += 0.35 * e; tR += 0.35 * e; kR += 0.1;
   }
   const bl = st.block || 0;
-  if (bl > 0) { sLx = sLx * (1 - bl) - 1.15 * bl; sLy = sLy * (1 - bl) + 0.55 * bl; eL = eL * (1 - bl) - 1.25 * bl; lean += 0.12 * bl; tL -= 0.25 * bl; kL += 0.4 * bl; kR += 0.3 * bl; drop -= 0.07 * bl; }
+  if (bl > 0) { sLx = sLx * (1 - bl) - 1.05 * bl; sLy = sLy * (1 - bl) + 0.6 * bl; eL = eL * (1 - bl) - 0.3 * bl; lean += 0.12 * bl; tL -= 0.25 * bl; kL += 0.4 * bl; kR += 0.3 * bl; drop -= 0.07 * bl; }
   if (st.climb) { sRx = -2.75 + s * 0.5; sLx = -2.75 - s * 0.5; sRy = sLy = 0; sRz = 0.15; sLz = -0.15; eR = -0.75 + s * 0.45; eL = -0.75 - s * 0.45; tL = -0.75 - s * 0.6; tR = -0.75 + s * 0.6; kL = 1.25 + s * 0.5; kR = 1.25 - s * 0.5; lean = -0.1; twist = s * 0.12; drop = 0; }
   if (st.swim) {
     const k = Math.min(1, mv * 1.5), u = 0.5 + 0.5 * s;
