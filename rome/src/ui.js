@@ -80,6 +80,7 @@ export function createUI(ctx) {
         ${row('Show frame rate', '', chk('fps'))}
       </div>
       <div class="sect">Controls</div><div class="set">
+        ${isTouch ? '' : row('Looking around', 'Move to look suits a trackpad: click the game once, then just slide your finger. Esc frees the pointer.', sel('look', [['move', 'Move the pointer to look'], ['drag', 'Hold and drag to look']]))}
         ${row('Camera sensitivity', '', rng('sens', 0.4, 2.2, 0.1))}
         ${row('Invert vertical look', '', chk('invertY'))}
         ${row('Camera follows your heading', 'Turns the camera behind you while you travel.', chk('autoCam'))}
@@ -99,8 +100,8 @@ export function createUI(ctx) {
   }
   function controls() {
     const k = isTouch
-      ? [['Left side', 'Drag to move'], ['Right side', 'Drag to look, pinch to zoom'], ['Sword', 'Strike. Tap three times for a combo; the third blow is heavy'], ['Shield', 'Hold to block. Raise it just before a blow lands to parry'], ['Arrows', 'Dodge'], ['Javelin', 'Throw a pilum at the nearest enemy'], ['Bread', 'Eat to recover health'], ['Horse', 'Mount or dismount']]
-      : [['W A S D', 'Move'], ['Drag', 'Look around (mouse or trackpad). Comma and full stop also turn the camera'], ['Scroll', 'Zoom'], ['J or click', 'Strike. Three in a row makes a combo; the third blow is heavy'], ['K, Shift or right-click', 'Hold to block. Raise it just before a blow lands to parry'], ['Space', 'Dodge'], ['F', 'Throw a pilum at the nearest enemy'], ['R', 'Eat bread to recover health'], ['E', 'Talk, trade, set sail and other actions'], ['H', 'Mount or dismount your horse'], ['M  I  L', 'Map, gear, quests'], ['Esc', 'Menu']];
+      ? [['Left side', 'Drag to move'], ['Right side', 'Drag to look, pinch to zoom'], ['Sword', 'Strike. Tap three times for a combo; the third blow is heavy'], ['Shield', 'Hold to block. Raise it just before a blow lands to parry'], ['Arrows', 'Dodge'], ['Javelin', 'Throw a pilum at the nearest enemy'], ['Bread', 'Eat to recover health'], ['Horse', 'Mount or dismount'], ['Walls', 'Keep pushing against a wall to climb it'], ['Mask', 'Sneak. From behind or above an unaware enemy, tap the prompt to assassinate']]
+      : [['W A S D', 'Move'], ['Look', 'Click the game once, then move the pointer (or hold and drag, if you chose that in Settings). A two-finger sideways swipe also turns the camera'], ['Scroll or pinch', 'Zoom'], ['J or click', 'Strike. Three in a row makes a combo; the third blow is heavy'], ['Walls', 'Keep pushing against a wall to climb it; pull away to climb down, Space to let go'], ['C', 'Sneak. Enemies see only what is in front of them. From behind or above, strike to assassinate'], ['K, Shift or right-click', 'Hold to block. Raise it just before a blow lands to parry'], ['Space', 'Dodge'], ['F', 'Throw a pilum at the nearest enemy'], ['R', 'Eat bread to recover health'], ['E', 'Talk, trade, set sail and other actions'], ['H', 'Mount or dismount your horse'], ['M  I  L', 'Map, gear, quests'], ['Esc', 'Menu']];
     show('Controls', `<div class="keys">${k.map(([a, b]) => `<b>${a}</b><span>${b}</span>`).join('')}</div>`, { name: 'controls' });
   }
 
@@ -229,13 +230,15 @@ export function createUI(ctx) {
   const cc = $('compassCv').getContext('2d');
   let last = {};
   const setTxt = (id, v) => { if (last[id] !== v) { last[id] = v; $(id).textContent = v; } };
-  function hud(dt, tt, camYaw, promptText, foes) {
+  function hud(dt, tt, camYaw, promptText, foes, needClick) {
+    if (last.nc !== needClick) { last.nc = needClick; $('lockHint').hidden = !needClick; }
+    if (last.snk !== PL.sneak) { last.snk = PL.sneak; $('aSnk').classList.toggle('lit', PL.sneak); }
     $('hpf').style.width = (PL.hp / PL.maxHp * 100).toFixed(1) + '%'; $('stf').style.width = PL.st.toFixed(0) + '%';
     setTxt('lvl', PL.level);
     const purse = `${PL.den}|${PL.panis}|${PL.pila}`;
     if (last.purse !== purse) { last.purse = purse; $('purse').innerHTML = `<span><b>${PL.den}</b> denarii</span>`; $('eatN').textContent = PL.panis; $('pilN').textContent = PL.pila; }
     const st = `${PL.horse}|${PL.mode}|${PL.panis > 0}|${PL.pila > 0}`;
-    if (last.st !== st) { last.st = st; $('aMnt').hidden = !PL.horse; $('actions').hidden = PL.mode === 'ship'; $('aEat').classList.toggle('off', PL.panis <= 0); $('aPil').classList.toggle('off', PL.pila <= 0); }
+    if (last.st !== st) { last.st = st; $('aMnt').hidden = !PL.horse; $('actions').hidden = PL.mode === 'ship'; $('aSnk').hidden = PL.mode !== 'foot'; $('aEat').classList.toggle('off', PL.panis <= 0); $('aPil').classList.toggle('off', PL.pila <= 0); }
     // compass
     const w = 760, h = 52, heading = -camYaw;
     cc.clearRect(0, 0, w, h); cc.textAlign = 'center'; cc.textBaseline = 'middle';

@@ -59,6 +59,8 @@ body.touch #prompt b { display: none; } body.touch #prompt { padding: 11px 20px;
 .ab:active { background: rgba(217, 173, 78, 0.35); }
 .ab.off { opacity: 0.32; }
 #aAtk { width: 86px; height: 86px; right: 0; bottom: 0; border-color: var(--gold); } #aBlk { width: 62px; height: 62px; right: 96px; bottom: 2px; } #aDge { width: 62px; height: 62px; right: 70px; bottom: 76px; }
+#aSnk { width: 46px; height: 46px; right: 126px; bottom: 138px; } .ab.lit { background: rgba(217, 173, 78, 0.5); border-color: var(--gold); }
+#lockHint { left: 50%; bottom: calc(var(--sb) + 76px); transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(18, 13, 8, 0.72); border: 1px solid rgba(217, 173, 78, 0.6); font-size: 13.5px; font-weight: 700; white-space: nowrap; }
 #aPil { width: 52px; height: 52px; right: 2px; bottom: 98px; } #aEat { width: 46px; height: 46px; right: 150px; bottom: 76px; } #aMnt { width: 46px; height: 46px; right: 166px; bottom: 10px; }
 body:not(.touch) #actions { width: auto; height: auto; display: flex; gap: 6px; align-items: flex-end; }
 body:not(.touch) .ab { position: relative; width: 40px !important; height: 40px !important; right: auto !important; bottom: auto !important; border-radius: 9px; }
@@ -78,7 +80,6 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
 #dmg { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .dn { position: absolute; left: 0; top: 0; display: none; font: 700 16px var(--body); color: #fff; text-shadow: 0 1px 3px #000; will-change: transform; }
 .dn.crit { font-size: 22px; color: var(--gold); } .dn.heal { color: #9be07a; } .dn.hurt { color: #ff6a5a; } .dn.xp { color: #9fd0ff; font-size: 13px; }
-#grade { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(20, 12, 4, 0.34) 100%); }
 #vignette, #fade { position: fixed; inset: 0; pointer-events: none; opacity: 0; }
 #vignette { background: radial-gradient(ellipse at center, transparent 45%, rgba(170, 20, 15, 0.65) 100%); }
 #fade { background: #000; transition: opacity 0.35s; } #fade.on { opacity: 1; }
@@ -160,7 +161,6 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
 
 <canvas id="c" tabindex="0"></canvas>
 
-<div id="grade"></div>
 <div id="hud" hidden>
   <div id="bars">
     <div id="lvl">1</div>
@@ -179,6 +179,7 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
   <div id="foe" hidden><span id="foeName"></span><div class="bar"><i id="foeF"></i></div></div>
   <button id="prompt" data-act="interact" hidden><b>E</b><span id="promptT"></span></button>
   <div id="actions">
+    <button class="ab" id="aSnk" data-act="sneak" data-key="C" aria-label="Sneak"><svg viewBox="0 0 24 24"><path d="M3 9c3-3 6-4 9-4s6 1 9 4c-1 5-4 9-9 10-5-1-8-5-9-10zM7.500 11h3M13.500 11h3"/></svg></button>
     <button class="ab" id="aMnt" data-act="mount" data-key="H" aria-label="Horse"><svg viewBox="0 0 24 24"><path d="M5 20v-6l-2-3 4-6 3 1 5-2 4 4-1 4-3 1v7M10 20v-5"/></svg></button>
     <button class="ab" id="aEat" data-act="eat" data-key="R" aria-label="Eat bread"><svg viewBox="0 0 24 24"><path d="M4 13a8 6 0 0 1 16 0v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM9 10v3M12 9v4M15 10v3"/></svg><em id="eatN">0</em></button>
     <button class="ab" id="aPil" data-act="pilum" data-key="F" aria-label="Throw pilum"><svg viewBox="0 0 24 24"><path d="M4 20L20 4M20 4l-5 1 4 4zM7 14l3 3"/></svg><em id="pilN">0</em></button>
@@ -186,6 +187,7 @@ body:not(.touch) #actions { bottom: calc(var(--sb) + 14px); }
     <button class="ab" id="aBlk" data-act="block" data-key="K" aria-label="Block"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9.5C7.500 20 4 17 4 12V6z"/></svg></button>
     <button class="ab" id="aAtk" data-act="attack" data-key="J" aria-label="Attack"><svg viewBox="0 0 24 24"><path d="M5 19L18 6l1-3-3 1L3 17zM7 13l4 4M4 20l2-2"/></svg></button>
   </div>
+  <div id="lockHint" hidden>Click to look around</div>
   <div id="toast"></div>
   <div id="saved">SAVED</div>
   <div id="fps" hidden></div>

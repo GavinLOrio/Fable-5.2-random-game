@@ -10,7 +10,7 @@ export const ghostMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3
 
 const STEEL = 0xc8ccd2, BRONZE = 0xb8923a, WOOD = 0x6b4a2f, LEATHER = 0x5a3a24, IRON = 0x8a8f96;
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-const cyl = (a, b, h, n = 6) => new THREE.CylinderGeometry(a, b, h, n);
+const cyl = (a, b, h, n = 10) => new THREE.CylinderGeometry(a, b, h, n);
 
 function weaponParts(kind) {
   const y = -0.6, out = [];
@@ -38,16 +38,16 @@ function bodyGeo(L) {
   const skin = L.skin ?? 0xe0b08a, tunic = L.tunic ?? 0xb8a888, hair = L.hair ?? 0x3a2a1a, p = [];
   const long = L.toga || L.female;
   const torsoCol = L.bare ? skin : L.armor === 'hamata' ? IRON : L.armor === 'musculata' ? BRONZE : L.armor === 'squamata' ? 0xa8843a : L.armor === 'lino' || L.armor === 'linothorax' ? 0xe6dec4 : L.toga ? 0xf2efe6 : tunic;
-  p.push(part(cyl(0.27, 0.33, 0.64, 7), torsoCol, T(0, 1.16, 0)));
-  if (long) p.push(part(cyl(0.33, 0.47, 0.92, 8), L.toga ? 0xf2efe6 : tunic, T(0, 0.48, 0)));
-  else p.push(part(cyl(0.33, 0.41, 0.4, 7), L.armor === 'musculata' ? LEATHER : tunic, T(0, 0.7, 0)));
+  p.push(part(cyl(0.27, 0.33, 0.64, 12), torsoCol, T(0, 1.16, 0)));
+  if (long) p.push(part(cyl(0.33, 0.47, 0.92, 12), L.toga ? 0xf2efe6 : tunic, T(0, 0.48, 0)));
+  else p.push(part(cyl(0.33, 0.41, 0.4, 12), L.armor === 'musculata' ? LEATHER : tunic, T(0, 0.7, 0)));
   if (L.armor && L.armor !== 'none') p.push(part(cyl(0.36, 0.36, 0.1, 7), L.armor === 'musculata' ? BRONZE : torsoCol, T(0, 1.44, 0)), part(cyl(0.345, 0.345, 0.07, 7), LEATHER, T(0, 0.9, 0)));
   else if (!long) p.push(part(cyl(0.34, 0.34, 0.06, 7), LEATHER, T(0, 0.9, 0)));
   if (L.toga) { p.push(part(box(0.16, 0.9, 0.5), 0xf7f4ec, T(0.05, 1.05, 0.02, 1, 1, 1, 0, 0, 0.55))); if (L.stripe) p.push(part(box(0.05, 0.9, 0.52), L.stripe, T(-0.02, 1.02, 0.02, 1, 1, 1, 0, 0, 0.55))); }
   if (L.female && L.stripe) p.push(part(cyl(0.48, 0.48, 0.06, 8), L.stripe, T(0, 0.06, 0)), part(cyl(0.3, 0.3, 0.05, 7), L.stripe, T(0, 0.92, 0)));
   if (L.cloak != null) p.push(part(box(0.62, 1.0, 0.05), L.cloak, T(0, 0.98, -0.27, 1, 1, 1, 0.12, 0, 0)), part(box(0.66, 0.1, 0.36), L.cloak, T(0, 1.46, -0.06)));
-  p.push(part(cyl(0.08, 0.09, 0.1, 6), skin, T(0, 1.52, 0)), part(new THREE.SphereGeometry(0.17, 8, 6), skin, T(0, 1.68, 0)));
-  p.push(part(box(0.035, 0.035, 0.02), 0x1a1410, T(-0.06, 1.7, 0.16)), part(box(0.035, 0.035, 0.02), 0x1a1410, T(0.06, 1.7, 0.16)));
+  p.push(part(cyl(0.08, 0.09, 0.1, 6), skin, T(0, 1.52, 0)), part(new THREE.SphereGeometry(0.17, 14, 10), skin, T(0, 1.68, 0)));
+  p.push(part(box(0.035, 0.035, 0.02), 0x1a1410, T(-0.06, 1.7, 0.16)), part(box(0.035, 0.035, 0.02), 0x1a1410, T(0.06, 1.7, 0.16)), part(box(0.035, 0.06, 0.05), skin, T(0, 1.67, 0.175)), part(box(0.07, 0.014, 0.02), 0x8a4a3a, T(0, 1.615, 0.158)));
   if (L.helmet && L.helmet !== 'none' && L.helmet !== 'nohelm') {
     const hc = L.helmet === 'agen' ? IRON : BRONZE;
     p.push(part(new THREE.SphereGeometry(0.2, 8, 5, 0, TAU, 0, Math.PI * 0.55), hc, T(0, 1.69, 0)), part(box(0.34, 0.03, 0.2), hc, T(0, 1.62, -0.16, 1, 1, 1, -0.5, 0, 0)));
@@ -112,6 +112,7 @@ export function poseHuman(h, st) {
     else if (st.kind === 1) { rx = -1.3; ry = 1.3 * w - 2.5 * e; bodyY = 0.5 * w - 1.0 * e; }
     else { rx = -2.9 * w + 2.0 * e; bodyX = -0.2 * w + 0.55 * e; }
   }
+  if (st.climb) { h.armR.rotation.set(-2.7 + s * 0.45, 0, 0); h.armL.rotation.set(-2.7 - s * 0.45, 0, 0); h.legL.rotation.set(-0.5 - s * 0.5, 0, 0); h.legR.rotation.set(-0.5 + s * 0.5, 0, 0); h.body.rotation.set(-0.12, 0, 0); h.g.rotation.x = 0; return; }
   h.armR.rotation.set(rx, ry, 0);
   const bl = st.block;
   h.armL.rotation.set((s * 0.4 * mv - 0.15) * (1 - bl) - 1.0 * bl, 0.5 * bl, 0);

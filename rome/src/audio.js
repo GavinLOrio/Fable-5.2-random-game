@@ -69,6 +69,7 @@ export const sfx = {
   horse() { if (limit('horse', 0.4)) { tone(900, 500, 0.35, 'sawtooth', 0.05); tone(700, 380, 0.4, 'square', 0.03, 0.08); } },
   sail() { if (limit('sail', 0.5)) { noise(1.2, 0.12, 300, 1400, 'bandpass'); tone(98, 98, 1.0, 'sine', 0.1); } },
   travel() { if (limit('travel', 0.5)) noise(0.9, 0.12, 400, 3000, 'bandpass'); },
+  alert() { if (limit('alert', 0.4)) { tone(620, 930, 0.18, 'square', 0.07); tone(930, 930, 0.3, 'square', 0.06, 0.16); } },
   hoof() { if (limit('hoof', 0.13)) noise(0.05, 0.05, 500, 200); },
 };
 

@@ -3,8 +3,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { createWorld, part, T, mergeGeometries, litMat, toX, toZ, CS, XMIN, XMAX, ZMIN, ZMAX } from './world.js';
-import { buildCity, collideCity } from './city.js';
+import { buildCity, collideCity, surfaceAt, inside, STEP } from './city.js';
 import { makeHuman, poseHuman, addGhost, setFlash, makeHorse, poseHorse, makeShip, poseShip, charMat } from './models.js';
 import { PLACES, ITEMS, STOCK, PRICE, NPCS, FOES, WILD, CAMPS, QUESTS } from './data.js';
 import { createFx } from '../../src/fx.js';
@@ -19,7 +20,7 @@ if (isTouch) document.body.classList.add('touch');
 const SET_KEY = 'aquila-settings-v2', slotKey = (n) => 'aquila-slot-' + n;
 const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } } };
 const PRESET = { low: { res: 0.7, shadows: false, bloom: false, view: 2, foliage: 0.4 }, med: { res: 0.85, shadows: true, bloom: true, view: 3, foliage: 0.7 }, high: { res: 1, shadows: true, bloom: true, view: 4, foliage: 1 } };
-const S = Object.assign({ quality: isTouch ? 'med' : 'high', ...PRESET[isTouch ? 'med' : 'high'], autoRes: true, sens: 1, invertY: false, autoCam: true, master: 0.8, music: 0.5, sfx: 0.9, difficulty: 'normal', hud: 1, fps: false, numbers: true }, store.get(SET_KEY) || {});
+const S = Object.assign({ quality: isTouch ? 'med' : 'high', ...PRESET[isTouch ? 'med' : 'high'], autoRes: true, look: isTouch ? 'drag' : 'move', sens: 1, invertY: false, autoCam: true, master: 0.8, music: 0.5, sfx: 0.9, difficulty: 'normal', hud: 1, fps: false, numbers: true }, store.get(SET_KEY) || {});
 const DIFF = { easy: { hp: 0.8, dmg: 0.6 }, normal: { hp: 1, dmg: 1 }, hard: { hp: 1.25, dmg: 1.4 } };
 const MILE = 3.39; // world units per Roman mile
 
@@ -31,7 +32,7 @@ function boot() {
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 3200);
-  const wopts = { viewChunks: S.view, foliage: S.foliage, shadows: S.shadows, fog: 0.003 };
+  const wopts = { viewChunks: S.view, foliage: S.foliage, shadows: S.shadows, fog: 0.003, shadowSize: isTouch ? 2048 : 4096 };
   const world = createWorld(scene, wopts);
   const fx = createFx(scene, camera);
   const input = createInput(canvas);
@@ -39,6 +40,17 @@ function boot() {
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.7, 0.95);
   composer.addPass(bloom); composer.addPass(new OutputPass());
+  // final colour grade: a little more contrast and saturation, warm highlights, cool shadows, soft vignette
+  composer.addPass(new ShaderPass({
+    uniforms: { tDiffuse: { value: null } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+      void main(){ vec4 c = texture2D(tDiffuse, vUv); float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+        vec3 col = mix(vec3(l), c.rgb, 1.2); col = (col - 0.5) * 1.09 + 0.5;
+        col += vec3(0.022, 0.008, -0.022) * smoothstep(0.4, 1.0, l) + vec3(-0.014, 0.0, 0.022) * smoothstep(0.5, 0.0, l);
+        col *= 1.0 - smoothstep(0.42, 0.95, length(vUv - 0.5)) * 0.36;
+        gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a); }`,
+  }));
   let W = 1, H = 1, dynRes = 1;
   function resize() {
     W = window.innerWidth; H = window.innerHeight;
@@ -51,7 +63,7 @@ function boot() {
   function applySettings(rebuild) {
     wopts.viewChunks = S.view; wopts.shadows = S.shadows; wopts.fog = 1.87 / (0.86 * S.view * CS);
     if (rebuild || wopts.foliage !== S.foliage) { wopts.foliage = S.foliage; world.rebuildAll(); }
-    bloom.enabled = S.bloom; setVolumes(S.master, S.music, S.sfx);
+    bloom.enabled = S.bloom; setVolumes(S.master, S.music, S.sfx); input.setFree(S.look === 'move' && !isTouch);
     document.documentElement.style.setProperty('--hs', S.hud); $('fps').hidden = !S.fps;
     world.applySky(); resize(); store.set(SET_KEY, S);
   }
@@ -63,7 +75,7 @@ function boot() {
     x: 0, z: 0, y: 0, facing: 0, hp: 100, maxHp: 100, st: 100, level: 1, xp: 0, den: 30, panis: 2, pila: 2,
     owned: ['pugio', 'noshield', 'tunica', 'nohelm'], eq: { weapon: 'pugio', shield: 'noshield', armor: 'tunica', helmet: 'nohelm' },
     horse: false, ship: false, shipPos: null, mode: 'foot', atk: null, combo: 0, comboT: 0, queued: false, blocking: false, blockT: 0, dodgeT: 0, dodgeCd: 0, dx: 0, dz: 1,
-    invuln: 0, stag: 0, hurtT: 0, lastHurt: 99, stIdle: 0, ph: 0, mv: 0, speed: 0, kills: 0, time: 0, slot: 1, name: 'Marcus',
+    invuln: 0, stag: 0, hurtT: 0, vy: 0, climb: null, pushT: 0, sneak: false, lastHurt: 99, stIdle: 0, ph: 0, mv: 0, speed: 0, kills: 0, time: 0, slot: 1, name: 'Marcus',
   };
   let mode = 'loading', time = 0, rt = 0, camYaw = 0, camPitch = 0.42, camDist = 10, camDistT = 10, camClear = 10, combat = 0, saveT = 0, slotNow = 1;
   const camTarget = new THREE.Vector3();
@@ -106,7 +118,7 @@ function boot() {
     return out;
   };
   const cities = new Map();
-  let nearSite = null, nearObs = null;
+  let nearSite = null, nearObs = null, allObs = null;
   function updateCities() {
     let built = false;
     nearSite = null; let bd = 1e9;
@@ -119,17 +131,42 @@ function boot() {
     }
     nearObs = nearSite && bd < nearSite.r + 80 && cities.get(nearSite.id) ? cities.get(nearSite.id).obs : null;
     if (nearSite && bd > nearSite.r + 80) nearSite = null;
+    allObs = nearObs;
+    for (const c of camps) if (c.obs && Math.hypot(c.x - PL.x, c.z - PL.z) < 140) allObs = allObs ? allObs.concat(c.obs) : c.obs;
   }
   const _o = { x: 0, z: 0 };
-  // move a circle with collision; returns true if it moved freely
+  // can an entity at height y stand at (x, z)? Solid ground, or a pier / roof / wall top within reach
+  function standOk(x, z, y) { if (!world.inBounds(x, z)) return false; const t = world.getHeight(x, z); return t > 0.32 || surfaceAt(allObs, x, z, y, t) > t + 0.01; }
+  // move a circle with collision; returns true if it moved freely. b.hit is the wall it ran into, if any
   function moveBody(b, dx, dz, r, water) {
-    _o.x = b.x + dx; _o.z = b.z + dz;
-    if (!water) { world.collideProps(_o, r); if (nearObs) collideCity(_o, r, nearObs); }
-    const ok = water ? world.sailable : world.walkable;
-    if (ok(_o.x, _o.z)) { b.x = _o.x; b.z = _o.z; return true; }
-    if (ok(_o.x, b.z)) { b.x = _o.x; return false; }
-    if (ok(b.x, _o.z)) { b.z = _o.z; return false; }
+    _o.x = b.x + dx; _o.z = b.z + dz; b.hit = null;
+    if (water) {
+      if (world.sailable(_o.x, _o.z)) { b.x = _o.x; b.z = _o.z; return true; }
+      if (world.sailable(_o.x, b.z)) { b.x = _o.x; return false; }
+      if (world.sailable(b.x, _o.z)) { b.z = _o.z; return false; }
+      return false;
+    }
+    const y = b.y ?? 0;
+    if (y < world.getHeight(b.x, b.z) + 2.5) world.collideProps(_o, r);
+    if (allObs) { const h = collideCity(_o, r, allObs, y); if (h) b.hit = { ob: h.ob, nx: h.nx, nz: h.nz }; }
+    if (standOk(_o.x, _o.z, y)) { b.x = _o.x; b.z = _o.z; return !b.hit; }
+    if (standOk(_o.x, b.z, y)) { b.x = _o.x; return false; }
+    if (standOk(b.x, _o.z, y)) { b.z = _o.z; return false; }
     return false;
+  }
+  // gravity and footing: step up small ledges at once, fall off edges
+  function settle(b, dt) {
+    const g = surfaceAt(allObs, b.x, b.z, b.y, world.getHeight(b.x, b.z));
+    if (b.y > g + 0.06) { b.vy = (b.vy || 0) - 34 * dt; b.y += b.vy * dt; if (b.y <= g) { b.y = g; b.vy = 0; } }
+    else { b.y = g; b.vy = 0; }
+  }
+  const climbable = (ob, y) => ob.top - y > STEP && ob.top - y < 70 && (ob.r == null || ob.stand);
+  // line of sight between two points, blocked by buildings taller than both
+  function sight(ax, az, ay, bx, bz, by) {
+    if (!allObs) return true;
+    const d = Math.hypot(bx - ax, bz - az), n = Math.ceil(d / 1.4), eye = Math.min(ay, by) + 1.5;
+    for (let k = 1; k < n; k++) { const t = k / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t; for (const o of allObs) if (!o.plat && o.top > eye && inside(o, x, z)) return false; }
+    return true;
   }
 
   // ---------- player models ----------
@@ -144,6 +181,7 @@ function boot() {
   const ship = makeShip(); ship.g.visible = false; scene.add(ship.g);
   const markerGeo = new THREE.OctahedronGeometry(0.28, 0), markerMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.2, 0.7), fog: false });
   const markerMatQ = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.7, 2.2, 3), fog: false });
+  const susMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 2.2, 0.3), fog: false }), alertMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 0.3, 0.2), fog: false });
   const beamGeo = new THREE.CylinderGeometry(0.5, 0.5, 30, 8, 1, true); beamGeo.translate(0, 15, 0);
   const beamMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.9, 0.3), transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const findMark = new THREE.Group(); findMark.add(new THREE.Mesh(beamGeo, beamMat), new THREE.Mesh(markerGeo, markerMat)); findMark.children[1].position.y = 1.4; findMark.children[1].scale.setScalar(1.6); findMark.visible = false; scene.add(findMark);
@@ -228,7 +266,7 @@ function boot() {
     const h = makeHuman(look);
     const mark = new THREE.Mesh(markerGeo, d.kind === 'giver' ? markerMatQ : markerMat); mark.position.y = 2.5; mark.visible = d.kind !== 'shop'; h.g.add(mark);
     scene.add(h.g);
-    npcs.push({ key: d.key, d, h, mark, x: d.x, z: d.z, y: world.getHeight(d.x, d.z), facing: Math.PI, stale: false, name: d.npc === 'merchant' ? 'Merchant' : NPCS[d.npc].name });
+    npcs.push({ key: d.key, d, h, mark, x: d.x, z: d.z, y: surfaceAt(allObs, d.x, d.z, world.getHeight(d.x, d.z), world.getHeight(d.x, d.z)), facing: Math.PI, stale: false, name: d.npc === 'merchant' ? 'Merchant' : NPCS[d.npc].name });
   }
   const CIV_LOOKS = [{ tunic: 0xd8cdb4 }, { tunic: 0x8a6a4a, beard: 1 }, { female: 1, tunic: 0x7a8a9a, hair: 0x2a1a10 }, { female: 1, tunic: 0xb89a6a, stripe: 0x8a2a22, hair: 0x4a3018 }, { toga: 1, hair: 0x8a8378 }, { tunic: 0x6a7a5a, hair: 0x1a120c }, { tunic: 0x9a8a6a, bald: 1, hair: 0x7a7468 }];
   function updatePeople(dt) {
@@ -249,7 +287,7 @@ function boot() {
       if (!world.walkable(x, z)) { if (Math.random() < 0.2) break; continue; }
       const base = CIV_LOOKS[(Math.random() * CIV_LOOKS.length) | 0], dark = ['egypt', 'punic', 'east'].includes(s.style);
       const h = makeHuman(dark ? { ...base, skin: 0xc08a5a } : base); scene.add(h.g);
-      civs.push({ h, x, z, y: 0, facing: a, tx: x, tz: z, wait: Math.random() * 3, ph: Math.random() * 6, site: s });
+      civs.push({ h, x, z, y: world.getHeight(x, z), facing: a, tx: x, tz: z, wait: Math.random() * 3, ph: Math.random() * 6, site: s });
     }
     for (let i = civs.length - 1; i >= 0; i--) {
       const c = civs[i];
@@ -261,7 +299,7 @@ function boot() {
         if (d < 1) c.wait = 1.5 + Math.random() * 5;
         else { const ox = c.x, oz = c.z; moveBody(c, (dx / d) * 1.7 * dt, (dz / d) * 1.7 * dt, 0.45); if (Math.hypot(c.x - ox, c.z - oz) < 0.6 * 1.7 * dt) { c.stuck = (c.stuck || 0) + dt; if (c.stuck > 0.6) { c.wait = 0.5; c.stuck = 0; } } c.facing = angleLerp(c.facing, Math.atan2(dx, dz), 1 - Math.exp(-6 * dt)); mv = 0.55; c.ph += dt * 6; }
       }
-      c.y = world.getHeight(c.x, c.z); c.h.g.position.set(c.x, c.y, c.z); c.h.g.rotation.y = c.facing;
+      settle(c, dt || 0.016); c.h.g.position.set(c.x, c.y, c.z); c.h.g.rotation.y = c.facing;
       poseHuman(c.h, { mv, ph: c.ph, atk: -1, kind: 0, block: 0, dead: 0 });
     }
   }
@@ -277,9 +315,10 @@ function boot() {
     const f = {
       type, def, lvl, group, model, x, z, y: world.getHeight(x, z), facing: Math.random() * TAU, r: def.beast ? 0.6 : 0.5,
       hp: def.hp * (1 + 0.14 * (lvl - 1)) * d.hp, dmg: def.dmg * (1 + 0.09 * (lvl - 1)) * d.dmg, st: 'chase', t: 0, cd: 0.6 + Math.random() * 1.5, ph: Math.random() * 6, mv: 0,
-      reach: def.beast ? 2.0 : wp === 'hasta' ? 3.3 : wp === 'gallic' ? 3.0 : 2.5, strafe: Math.random() < 0.5 ? 1 : -1, flash: 0, dead: 0, kx: 0, kz: 0, atkKind: 0, aware: group !== 'wild' && group !== 'camp',
+      reach: def.beast ? 2.0 : wp === 'hasta' ? 3.3 : wp === 'gallic' ? 3.0 : 2.5, strafe: Math.random() < 0.5 ? 1 : -1, flash: 0, dead: 0, kx: 0, kz: 0, atkKind: 0, aware: group !== 'wild' && group !== 'camp', hx: x, hz: z, pt: Math.random() * 3, sus: 0, alertT: 0, vy: 0, cl: null,
     };
     f.maxHp = f.hp; foes.push(f);
+    f.mark = new THREE.Mesh(markerGeo, susMat); f.mark.position.y = def.beast ? 4.2 : 2.5; f.mark.visible = false; model.g.add(f.mark);
     return f;
   }
   function spawnGroup(list, x, z, lvl, group) {
@@ -299,6 +338,7 @@ function boot() {
       if (PL.st <= 0) { PL.st = 0; PL.stag = 0.7; PL.blocking = false; ui.note('Guard broken'); }
     } else { sfx.hurt(); fx.addShake(0.3); $('vignette').style.opacity = 0.8; PL.hurtT = 0.25; }
     dmg *= 1 - defence();
+    PL.climb = null;
     PL.hp -= dmg; PL.lastHurt = 0; combat = 6;
     if (S.numbers && dmg >= 1) fx.number(PL.x, PL.y + 2.2, PL.z, Math.round(dmg), 'hurt');
     if (PL.mode === 'horse' && dmg > 4) setMode('foot');
@@ -311,7 +351,7 @@ function boot() {
       sfx.clang(); fx.burst(f.x - dirx * 0.5, f.y + 1.2, f.z - dirz * 0.5, 6, 4, 2.5, 2.2, 1.2, { life: 0.25, size: 0.3 }); dmg *= 0.25;
       if (S.numbers) fx.number(f.x, f.y + 2.3, f.z, 'Blocked', '');
     } else { sfx.hit(); fx.burst(f.x, f.y + 1.2, f.z, heavy ? 12 : 6, 5, 2.4, 0.4, 0.3, { life: 0.3, size: 0.35 }); }
-    f.hp -= dmg; f.flash = 0.1; f.aware = true; setFlash(f.model, true);
+    f.hp -= dmg; f.flash = 0.1; f.cl = null; if (!f.aware) alertFoe(f); setFlash(f.model, true);
     f.kx += dirx * (heavy ? 9 : 3.5); f.kz += dirz * (heavy ? 9 : 3.5);
     if (heavy && !f.def.boss) { f.st = 'stag'; f.t = 0.6; } else if (f.st === 'windup' && !f.def.elite && Math.random() < 0.45) { f.st = 'stag'; f.t = 0.35; }
     if (S.numbers) fx.number(f.x, f.y + 2.1, f.z, Math.round(dmg), heavy ? 'crit' : '');
@@ -324,6 +364,20 @@ function boot() {
       if (S.numbers) fx.number(f.x, f.y + 2.8, f.z, `+${Math.round(f.def.xp * (1 + 0.1 * (f.lvl - 1)))} xp${dn ? `  +${dn} d` : ''}`, 'xp');
     }
   }
+  function alertFoe(f) {
+    for (const o of foes) if (!o.dead && !o.aware && (o === f || (o.group === f.group && Math.hypot(o.x - f.x, o.z - f.z) < 24))) { o.aware = true; o.sus = 1; o.alertT = 1.6; o.cd = Math.max(o.cd, 0.5); }
+    sfx.alert();
+  }
+  function assassinate(f) {
+    const above = PL.y - f.y > 1.6;
+    PL.facing = Math.atan2(f.x - PL.x, f.z - PL.z); PL.climb = null;
+    if (above) { PL.x = f.x - Math.sin(PL.facing) * 0.8; PL.z = f.z - Math.cos(PL.facing) * 0.8; PL.vy = -6; }
+    PL.atk = { t: 0, dur: 0.45, kind: 2, hit: true, lunge: 0 }; PL.invuln = Math.max(PL.invuln, 0.5); PL.sneak = false;
+    const tough = f.def.boss || f.def.elite;
+    if (S.numbers) fx.number(f.x, f.y + 3.2, f.z, tough ? 'Ambushed' : 'Assassinated', 'crit');
+    fx.addShake(0.2);
+    hitFoe(f, tough ? f.maxHp * 0.6 : f.hp + 1, true, Math.sin(PL.facing), Math.cos(PL.facing));
+  }
   function updateFoes(dt) {
     let attackers = 0;
     for (const f of foes) if (f.st === 'windup' || f.st === 'strike') attackers++;
@@ -333,7 +387,31 @@ function boot() {
       const dx = PL.x - f.x, dz = PL.z - f.z, d = Math.hypot(dx, dz) || 0.001, nx = dx / d, nz = dz / d;
       if (f.dead) { f.dead = Math.min(1, f.dead + dt * 2.5); f.t += dt; if (f.t > 3.2) { f.model.g.removeFromParent(); foes.splice(i, 1); } continue; }
       if ((f.group === 'wild' && d > 110) || d > 260) { f.model.g.removeFromParent(); foes.splice(i, 1); continue; }
-      if (!f.aware) { if (d < 34 && PL.mode !== 'ship') f.aware = true; else { f.mv = 0; continue; } }
+      f.alertT -= dt;
+      if (f.cl) {   // scaling a wall after the player
+        f.y += 3.6 * dt; f.mv = 1; f.ph += dt * 9; f.facing = Math.atan2(-f.cl.nx, -f.cl.nz);
+        if (f.y >= f.cl.ob.top) { f.y = f.cl.ob.top; f.x -= f.cl.nx * 0.8; f.z -= f.cl.nz * 0.8; f.cl = null; }
+        continue;
+      }
+      if (!f.aware) {
+        // patrol near home, turning now and then
+        f.pt -= dt;
+        if (f.pt <= 0) { f.pt = 2.5 + Math.random() * 4; if (Math.random() < 0.55) { const a = Math.random() * TAU, r = 2 + Math.random() * 7; f.tx = f.hx + Math.cos(a) * r; f.tz = f.hz + Math.sin(a) * r; f.look = null; } else { f.tx = null; f.look = f.facing + (Math.random() - 0.5) * 2.6; } }
+        let pm = 0;
+        if (f.tx != null) { const ex = f.tx - f.x, ez = f.tz - f.z, el = Math.hypot(ex, ez); if (el > 0.7) { moveBody(f, (ex / el) * 1.6 * dt, (ez / el) * 1.6 * dt, f.r); f.facing = angleLerp(f.facing, Math.atan2(ex, ez), 1 - Math.exp(-4 * dt)); pm = 0.4; } else f.tx = null; }
+        else if (f.look != null) f.facing = angleLerp(f.facing, f.look, 1 - Math.exp(-2 * dt));
+        f.mv = damp(f.mv, pm, 8, dt); f.ph += dt * (f.def.beast ? 12 : 7) * f.mv; settle(f, dt);
+        // sight cone and hearing
+        const ahead = Math.sin(f.facing) * nx + Math.cos(f.facing) * nz, up = PL.y - f.y;
+        const vr = (PL.sneak ? 15 : 27) * (up > 2.2 ? 0.35 : 1) * (world.state.night > 0.5 ? 0.7 : 1);
+        f.losT = (f.losT || 0) - dt; if (f.losT <= 0) { f.losT = 0.2; f.los = d < vr && sight(f.x, f.z, f.y, PL.x, PL.z, PL.y); }
+        const see = PL.mode !== 'ship' && d < vr && ahead > 0.42 && f.los;
+        const hear = PL.mode !== 'ship' && Math.abs(up) < 2.5 && d < (PL.mode === 'horse' ? 10 : PL.sneak || PL.mv < 0.2 ? 0.75 : 3.8);
+        if (see || hear) f.sus += dt * (hear ? 3.2 : lerp(2.4, 0.75, d / vr)); else f.sus = Math.max(0, f.sus - dt * 0.45);
+        if (f.sus >= 1) alertFoe(f);
+        continue;
+      }
+      if (f.group !== 'wild' && f.group.slice(0, 4) !== 'camp' ? false : d > 58) { f.aware = false; f.sus = 0; f.hx = f.x; f.hz = f.z; f.st = 'chase'; continue; }
       combat = Math.max(combat, d < 40 ? 3 : 0);
       let mvx = 0, mvz = 0, sp = f.def.spd, face = Math.atan2(dx, dz);
       const range = f.def.ranged ? 13 : f.reach * 0.8;
@@ -343,11 +421,11 @@ function boot() {
       else if (f.st === 'windup') {
         if (f.t <= 0) {
           f.st = 'strike'; f.t = 0.16;
-          if (f.def.ranged) { shots.push({ x: f.x, y: f.y + 1.4, z: f.z, vx: nx * 27, vz: nz * 27, life: 1.6, dmg: f.dmg, foe: f, mine: false }); sfx.arrow(); }
+          if (f.def.ranged) { shots.push({ x: f.x, y: f.y + 1.4, z: f.z, vx: nx * 27, vz: nz * 27, vy: (PL.y + 1.1 - f.y - 1.4) / Math.max(0.15, d / 27), life: 1.6, dmg: f.dmg, foe: f, mine: false }); sfx.arrow(); }
           else {
             if (f.def.beast) { f.kx += nx * 14; f.kz += nz * 14; }
             const fd = Math.sin(f.facing) * nx + Math.cos(f.facing) * nz;
-            if (d < f.reach + 0.6 && fd > 0.35) hurtPlayer(f.dmg, f.x, f.z, f); else sfx.swing();
+            if (d < f.reach + 0.6 && fd > 0.35 && Math.abs(PL.y - f.y) < 1.8) hurtPlayer(f.dmg, f.x, f.z, f); else sfx.swing();
           }
         } else if (f.t < 0.16) face = f.facing;
       } else if (f.st === 'strike') { face = f.facing; if (f.t <= 0) { f.st = 'recover'; f.t = f.def.slow ? 0.9 : 0.55; } }
@@ -363,31 +441,35 @@ function boot() {
       if (d < 1.0) { mvx -= nx; mvz -= nz; }
       const ml = Math.hypot(mvx, mvz);
       moveBody(f, (mvx * sp + f.kx) * dt, (mvz * sp + f.kz) * dt, f.r);
+      if (f.hit && !f.def.beast && f.st === 'chase' && PL.y > f.y + 1.2 && climbable(f.hit.ob, f.y)) { f.pushT = (f.pushT || 0) + dt; if (f.pushT > 0.35) { f.cl = f.hit; f.pushT = 0; f.vy = 0; } } else f.pushT = 0;
       const kd = Math.exp(-8 * dt); f.kx *= kd; f.kz *= kd;
       f.mv = damp(f.mv, Math.min(1, ml) * (sp / f.def.spd), 10, dt); f.ph += dt * (f.def.beast ? 16 : 9) * f.mv;
       f.facing = angleLerp(f.facing, face, 1 - Math.exp(-9 * dt));
-      f.y = world.getHeight(f.x, f.z);
+      settle(f, dt);
     }
   }
   function drawFoes() {
     for (const f of foes) {
       f.model.g.position.set(f.x, f.y, f.z); f.model.g.rotation.y = f.facing;
+      const mk = f.mark; mk.visible = !f.dead && (f.alertT > 0 || (!f.aware && f.sus > 0.04));
+      if (mk.visible) { mk.material = f.alertT > 0 ? alertMat : susMat; mk.scale.setScalar(f.alertT > 0 ? 1.5 : 0.5 + f.sus); mk.rotation.y = rt * 3; }
       if (f.def.beast) { poseHorse(f.model, f.ph, f.mv); f.model.g.rotation.z = f.dead * 1.5; f.model.g.position.y -= f.dead * 0.2; }
       else {
         let atk = -1;
         if (f.st === 'windup') atk = (1 - f.t / f.dur) * 0.35; else if (f.st === 'strike') atk = 0.35 + (1 - f.t / 0.16) * 0.4; else if (f.st === 'recover') atk = Math.min(1, 0.75 + (1 - f.t / 0.55) * 0.25);
         if (f.st === 'recover' && f.t < 0.2) atk = -1;
-        poseHuman(f.model, { mv: f.mv, ph: f.ph, atk, kind: f.atkKind, ranged: f.def.ranged, block: f.def.guard && f.st === 'chase' ? 0.5 : 0, dead: f.dead, stag: f.st === 'stag' ? 1 : 0 });
+        poseHuman(f.model, { climb: !!f.cl, mv: f.mv, ph: f.ph, atk, kind: f.atkKind, ranged: f.def.ranged, block: f.def.guard && f.st === 'chase' ? 0.5 : 0, dead: f.dead, stag: f.st === 'stag' ? 1 : 0 });
       }
     }
   }
   function updateShots(dt) {
     let n = 0;
     for (let i = shots.length - 1; i >= 0; i--) {
-      const s = shots[i]; s.x += s.vx * dt; s.z += s.vz * dt; s.life -= dt;
+      const s = shots[i]; s.x += s.vx * dt; s.z += s.vz * dt; s.y += (s.vy || 0) * dt; s.life -= dt;
       let gone = s.life <= 0 || world.getHeight(s.x, s.z) > s.y;
-      if (!gone && s.mine) { for (const f of foes) if (!f.dead && (f.x - s.x) ** 2 + (f.z - s.z) ** 2 < 0.9) { const l = Math.hypot(s.vx, s.vz); hitFoe(f, s.dmg, true, s.vx / l, s.vz / l); gone = true; break; } }
-      else if (!gone && (PL.x - s.x) ** 2 + (PL.z - s.z) ** 2 < 0.6 && PL.invuln <= 0) { hurtPlayer(s.dmg, s.x - s.vx, s.z - s.vz, null); gone = true; }
+      if (!gone && allObs) for (const o of allObs) if (!o.plat && o.top > s.y && inside(o, s.x, s.z)) { gone = true; break; }
+      if (!gone && s.mine) { for (const f of foes) if (!f.dead && (f.x - s.x) ** 2 + (f.z - s.z) ** 2 < 0.9 && Math.abs(f.y + 1 - s.y) < 1.6) { const l = Math.hypot(s.vx, s.vz); hitFoe(f, s.dmg, true, s.vx / l, s.vz / l); gone = true; break; } }
+      else if (!gone && (PL.x - s.x) ** 2 + (PL.z - s.z) ** 2 < 0.6 && Math.abs(PL.y + 1 - s.y) < 1.5 && PL.invuln <= 0) { hurtPlayer(s.dmg, s.x - s.vx, s.z - s.vz, null); gone = true; }
       if (gone) { shots.splice(i, 1); continue; }
     }
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1);
@@ -409,10 +491,11 @@ function boot() {
       if (st.t === 'kill') {
         const key = 'q:' + id + ':' + QS[id].step;
         if (!killGroup || killGroup.key !== key) {
-          if (d < 85 && PL.mode !== 'ship') {
+          if (d < (st.stealth ? 70 : 85) && PL.mode !== 'ship') {
             if (killGroup) removeGroup(killGroup.key);
             killGroup = { key, id, list: spawnGroup(st.foes, p[0], p[1], st.lvl, key), x: p[0], z: p[1] };
-            ui.toast(st.obj, 'Battle', 2.6);
+            if (st.stealth) for (const f of killGroup.list) f.aware = false;
+            ui.toast(st.obj, st.stealth ? 'They have not seen you' : 'Battle', 2.6);
             if (st.say) say(st.say);
           }
         } else if (killGroup.list.every((f) => f.dead)) {
@@ -430,7 +513,9 @@ function boot() {
         c.mesh = new THREE.Group(); const y = world.getHeight(c.x, c.z);
         const t = new THREE.Mesh(tentGeo, charMat); t.castShadow = true; c.chest = new THREE.Mesh(chestGeo, charMat); c.chest.position.set(0, 0, -1); c.chest.castShadow = true;
         c.mesh.add(t, c.chest); c.mesh.position.set(c.x, y, c.z); scene.add(c.mesh);
-      } else if (d > 320 && c.mesh) { scene.remove(c.mesh); c.mesh = null; c.spawned = false; removeGroup('camp' + c.i); }
+        const bx = (dx, dz, hw, hd, rot, h) => ({ x: c.x + dx, z: c.z + dz, hw, hd, c: Math.cos(rot), s: Math.sin(rot), h, top: y + h });
+        c.obs = [bx(-4, -3, 1.9, 2.1, 0.5, 2.3), bx(4.5, -2, 1.9, 2.1, -0.6, 2.3), bx(0, -1, 0.78, 0.53, 0, 0.9), { x: c.x, z: c.z + 3, r: 1.0, h: 0.5, top: y + 0.5, stand: 1 }];
+      } else if (d > 320 && c.mesh) { scene.remove(c.mesh); c.mesh = null; c.obs = null; c.spawned = false; removeGroup('camp' + c.i); }
       if (c.mesh) c.chest.rotation.z = done ? 0.5 : 0;
       if (d < 90 && !done && !c.spawned && PL.mode !== 'ship') { c.spawned = true; const pool = WILD[world.regionAt(c.x, c.z)].filter((t) => t !== 'lupus'); const list = spawnGroup([[pool[0], 3], [pool[pool.length - 1], 1]], c.x, c.z, c.lvl, 'camp' + c.i); for (const f of list) f.group = 'camp' + c.i; }
     }
@@ -463,7 +548,7 @@ function boot() {
     camDistT = m === 'ship' ? 34 : m === 'horse' ? 13 : 10;
   }
   function fade(fn) { const f = $('fade'); f.classList.add('on'); setTimeout(() => { fn(); world.streamChunks(PL.x, PL.z, 12); updateCities(); camTarget.set(PL.x, PL.y + 1.5, PL.z); setTimeout(() => f.classList.remove('on'), 120); }, 380); }
-  function placePlayer(x, z) { const p = snapWalk(x, z); PL.x = p[0]; PL.z = p[1]; PL.y = world.getHeight(PL.x, PL.z); PL.atk = null; horse.g.visible = false; horseAt = null; }
+  function placePlayer(x, z) { const p = snapWalk(x, z); PL.x = p[0]; PL.z = p[1]; PL.y = world.getHeight(PL.x, PL.z); PL.vy = 0; PL.climb = null; PL.sneak = false; PL.atk = null; horse.g.visible = false; horseAt = null; }
   function entryOf(s) { const o = s.kind === 'pyramids' ? [14, 26] : s.kind === 'oppidum' ? [3, 5] : [2.5, 5]; return [s.x + o[0], s.z + o[1]]; }
   function fastTravel(id) {
     const s = world.siteById[id];
@@ -493,6 +578,12 @@ function boot() {
       return;
     }
     if (findStep) { prompt = { text: 'Search', fn: () => { const { id, st } = findStep; const done = () => advance(id); if (st.say) say(st.say, done); else done(); } }; return; }
+    if (PL.mode === 'foot' && !PL.climb) for (const f of foes) {
+      if (f.dead || f.aware) continue;
+      const dx = PL.x - f.x, dz = PL.z - f.z, d = Math.hypot(dx, dz) || 1, up = PL.y - f.y;
+      const behind = (Math.sin(f.facing) * dx + Math.cos(f.facing) * dz) / d < 0.3;
+      if ((d < 2.7 && Math.abs(up) < 1.2 && behind) || (up > 1.6 && up < 14 && d < 4.8)) { prompt = { text: up > 1.6 ? 'Assassinate from above' : 'Assassinate', kill: true, fn: () => assassinate(f) }; return; }
+    }
     let best = null, bd = 3.6;
     for (const n of npcs) { const d = Math.hypot(n.x - PL.x, n.z - PL.z); if (d < bd && !(n.stale && n.d.kind !== 'shop')) { bd = d; best = n; } }
     if (best) {
@@ -507,7 +598,7 @@ function boot() {
     }
     if (PL.ship) {
       const s = world.nearestSite(PL.x, PL.z, (p) => p.port);
-      if (s && Math.hypot(s.dock.x - PL.x, s.dock.z - PL.z) < 9) { prompt = { text: 'Set sail', fn: () => embark(s) }; return; }
+      if (s && (Math.hypot(s.dock.x - PL.x, s.dock.z - PL.z) < 7 || (s.pierEnd && Math.hypot(s.pierEnd.x - PL.x, s.pierEnd.z - PL.z) < 9))) { prompt = { text: 'Set sail', fn: () => embark(s) }; return; }
       if (PL.shipPos && Math.hypot(PL.shipPos.x - PL.x, PL.shipPos.z - PL.z) < 22) { prompt = { text: 'Board your ship', fn: () => embark(null) }; return; }
     }
   }
@@ -539,7 +630,7 @@ function boot() {
   // Player
   // =====================================================================
   function die() {
-    sfx.death(); PL.atk = null; mode = 'dead';
+    sfx.death(); PL.atk = null; mode = 'dead'; input.unlock();
     const respawn = () => { const s = world.nearestSite(PL.x, PL.z, (p) => discovered.has(p.id) && p.kind !== 'site') || world.siteById.ravenna; for (const f of foes) f.model.g.removeFromParent(); foes.length = 0; killGroup = null; for (const c of camps) c.spawned = false; setMode('foot'); const e = entryOf(s); placePlayer(e[0], e[1]); PL.hp = PL.maxHp; PL.st = 100; PL.invuln = 2; combat = 0; mode = 'play'; };
     if (G.bot) { G.deaths = (G.deaths || 0) + 1; respawn(); return; }
     setTimeout(() => ui.dead(() => fade(respawn)), 900);
@@ -557,6 +648,7 @@ function boot() {
     if (PL.comboT <= 0) PL.combo = 0;
     let ix = input.mx, iy = input.my, act = (a) => input.hit(a);
     if (G.bot) { const b = botInput(); ix = b.x; iy = b.y; act = (a) => b.act === a; }
+    if (G.drive) { ix = G.drive.x; iy = G.drive.y; act = (a) => G.drive.act === a; camYaw = 0; }
     const fxw = -Math.sin(camYaw), fzw = -Math.cos(camYaw), rxw = Math.cos(camYaw), rzw = -Math.sin(camYaw);
     let wx = rxw * ix + fxw * iy, wz = rzw * ix + fzw * iy; const mag = Math.min(1, Math.hypot(wx, wz));
     if (mag > 0.08) { const l = Math.hypot(wx, wz); wx /= l; wz /= l; }
@@ -573,15 +665,30 @@ function boot() {
       return;
     }
     const riding = PL.mode === 'horse';
-    if (act('mount') && PL.horse && !PL.atk) setMode(riding ? 'foot' : 'horse');
+    if (PL.climb) {   // on a wall: push towards it to go up, pull away to go down, dodge to let go
+      const c = PL.climb, into = moving ? -(wx * c.nx + wz * c.nz) : 0;
+      PL.facing = Math.atan2(-c.nx, -c.nz); PL.atk = null; PL.blocking = false;
+      if (act('dodge') || PL.stag > 0) { PL.climb = null; PL.x += c.nx * 0.25; PL.z += c.nz * 0.25; PL.vy = 0; }
+      else {
+        const vy = !moving ? 0 : into > -0.4 ? 4.6 : -5.5;
+        PL.y += vy * dt; PL.mv = damp(PL.mv, vy ? 1 : 0, 12, dt); PL.ph += dt * 9 * PL.mv; PL.vy = 0;
+        if (PL.y >= c.ob.top - 0.02) { PL.y = c.ob.top; PL.x -= c.nx * 0.85; PL.z -= c.nz * 0.85; PL.climb = null; }
+        else if (vy < 0 && PL.y <= surfaceAt(allObs, PL.x, PL.z, PL.y, world.getHeight(PL.x, PL.z)) + 0.02) PL.climb = null;
+        PL.st = Math.min(100, PL.st + 12 * dt);
+        return;
+      }
+    }
+    if (act('sneak') && !riding) { PL.sneak = !PL.sneak; ui.note(PL.sneak ? 'Sneaking: slower, quieter and harder to see' : 'Standing'); }
+    if (act('mount') && PL.horse && !PL.atk) { PL.sneak = false; setMode(riding ? 'foot' : 'horse'); }
     if (act('eat') && PL.panis > 0 && PL.hp < PL.maxHp) { PL.panis--; PL.hp = Math.min(PL.maxHp, PL.hp + PL.maxHp * 0.45); sfx.eat(); fx.burst(PL.x, PL.y + 1.2, PL.z, 12, 3, 0.6, 2.6, 0.8, { life: 0.6, size: 0.4 }); if (S.numbers) fx.number(PL.x, PL.y + 2.3, PL.z, '+' + Math.round(PL.maxHp * 0.45), 'heal'); }
     if (act('pilum') && PL.pila > 0 && !PL.atk && !riding) {
       let best = null, bd = 26; for (const f of foes) { if (f.dead) continue; const d = Math.hypot(f.x - PL.x, f.z - PL.z); if (d < bd) { bd = d; best = f; } }
       const a = best ? Math.atan2(best.x - PL.x, best.z - PL.z) : PL.facing; PL.facing = a; PL.pila--;
-      shots.push({ x: PL.x, y: PL.y + 1.5, z: PL.z, vx: Math.sin(a) * 34, vz: Math.cos(a) * 34, life: 1.1, dmg: (26 + 4 * PL.level), mine: true }); sfx.throw();
+      shots.push({ x: PL.x, y: PL.y + 1.5, z: PL.z, vx: Math.sin(a) * 34, vz: Math.cos(a) * 34, vy: best ? (best.y + 1 - PL.y - 1.5) / Math.max(0.1, bd / 34) : 0, life: 1.1, dmg: (26 + 4 * PL.level), mine: true }); sfx.throw();
       PL.atk = { t: 0, dur: 0.4, kind: 2, hit: true, lunge: 0 };
     }
-    if (act('attack') && PL.stag <= 0) { if (riding) setMode('foot'); else if (!PL.atk) startAttack(); else if (PL.atk.t > PL.atk.dur * 0.35) PL.queued = true; }
+    if (act('attack') && PL.stag <= 0 && prompt && prompt.kill && !riding) { prompt.fn(); prompt = null; }
+    else if (act('attack') && PL.stag <= 0) { PL.sneak = false; if (riding) setMode('foot'); else if (!PL.atk) startAttack(); else if (PL.atk.t > PL.atk.dur * 0.35) PL.queued = true; }
     const wasBlock = PL.blocking;
     PL.blocking = (G.bot ? false : input.block) && !riding && !PL.atk && PL.dodgeT <= 0 && PL.stag <= 0 && PL.st > 0;
     PL.blockT = PL.blocking ? (wasBlock ? PL.blockT + dt : 0) : 0;
@@ -600,7 +707,7 @@ function boot() {
           a.hit = true; const heavy = a.kind === 2, arc = heavy ? 0.55 : 0.1;
           for (const f of foes) {
             if (f.dead) continue; const dx = f.x - PL.x, dz = f.z - PL.z, d = Math.hypot(dx, dz) || 1;
-            if (d < w.reach + f.r + (heavy ? 0.4 : 0) && (Math.sin(PL.facing) * dx + Math.cos(PL.facing) * dz) / d > arc) hitFoe(f, w.dmg * (1 + 0.07 * (PL.level - 1)) * (heavy ? 1.8 : 1) * (0.9 + Math.random() * 0.2), heavy, dx / d, dz / d);
+            if (Math.abs(f.y - PL.y) < 2 && d < w.reach + f.r + (heavy ? 0.4 : 0) && (Math.sin(PL.facing) * dx + Math.cos(PL.facing) * dz) / d > arc) hitFoe(f, w.dmg * (1 + 0.07 * (PL.level - 1)) * (heavy ? 1.8 : 1) * (0.9 + Math.random() * 0.2), heavy, dx / d, dz / d);
           }
         }
         if (a.t >= a.dur) { PL.atk = null; if (PL.queued) startAttack(); }
@@ -608,16 +715,18 @@ function boot() {
       if (moving) {
         const road = world.roadDist(PL.x, PL.z) < 4.5;
         const base = riding ? 17 * (road ? 1.25 : 1) : 7.4 * (road ? 1.1 : 1);
-        const k = PL.atk ? 0.2 : PL.blocking ? 0.45 : 1;
+        const k = PL.atk ? 0.2 : PL.blocking ? 0.45 : PL.sneak ? 0.5 : 1;
         const e = 1.2, slope = (world.getHeight(PL.x + wx * e, PL.z + wz * e) - PL.y) / e;
         sp = mag * k * clamp(1 - Math.max(0, slope - 0.25) * 1.1, 0.35, 1);
         moveBody(PL, wx * base * sp * dt, wz * base * sp * dt, riding ? 0.8 : 0.45);
+        const hw = PL.hit;
+        if (hw && !riding && !PL.atk && climbable(hw.ob, PL.y) && -(wx * hw.nx + wz * hw.nz) > 0.7) { PL.pushT += dt; if (PL.pushT > 0.22) { PL.climb = hw; PL.pushT = 0; PL.vy = 0; sfx.dodge(); } } else PL.pushT = 0;
         if (!PL.atk) PL.facing = angleLerp(PL.facing, Math.atan2(wx, wz), 1 - Math.exp(-(riding ? 6 : 13) * dt));
         if (riding && sp > 0.4) sfx.hoof();
       }
     }
     PL.mv = damp(PL.mv, sp, 12, dt); PL.ph += dt * (riding ? 15 : 10.5) * PL.mv;
-    PL.y = world.getHeight(PL.x, PL.z);
+    settle(PL, dt);
     PL.stIdle += dt; if (PL.blocking) PL.stIdle = Math.min(PL.stIdle, 0.3);
     if (PL.stIdle > 0.7) PL.st = Math.min(100, PL.st + 26 * dt);
     if (PL.lastHurt > 6 && combat <= 0 && PL.hp < PL.maxHp) PL.hp = Math.min(PL.maxHp, PL.hp + PL.maxHp * 0.035 * dt);
@@ -676,7 +785,8 @@ function boot() {
     ui.close(); mode = 'play'; $('title').hidden = true; $('hud').hidden = false; combat = 0; wildT = 30;
     if (!data) {
       ui.toast('The Die Is Cast', 'January, 49 BC', 4.5);
-      ui.hint(isTouch ? 'Drag the left side of the screen to move, and the right side to look around.' : 'Move with WASD. Drag the mouse or trackpad to look around.');
+      ui.hint(isTouch ? 'Drag the left side of the screen to move, and the right side to look around.' : S.look === 'move' ? 'Move with WASD. Click the game once, then just move your finger on the trackpad to look around. Esc frees the pointer.' : 'Move with WASD. Drag the mouse or trackpad to look around.');
+      ui.hint(isTouch ? 'Push against a wall to climb it. Tap the mask button to sneak.' : 'Push against a wall to climb it. Press C to sneak. Enemies only see what is in front of them: strike from behind or from above to assassinate.');
       ui.hint('Follow the marker on the compass. A golden light marks who to speak to.');
       ui.hint(isTouch ? 'In a fight: tap the sword to strike, hold the shield to block, and use the arrows to dodge.' : 'In a fight: J or click to strike, hold K or right-click to block, Space to dodge, F to throw a pilum.');
       save(true);
@@ -708,7 +818,8 @@ function boot() {
       } else {
         hero.g.position.set(PL.x, PL.y + (riding ? 0.78 + horse.body.position.y : 0), PL.z); hero.g.rotation.set(0, PL.facing, 0);
         if (PL.dodgeT > 0) hero.g.rotation.x = (1 - PL.dodgeT / 0.34) * TAU * (Math.sin(PL.facing) * PL.dx + Math.cos(PL.facing) * PL.dz > 0 ? 1 : -1);
-        poseHuman(hero, { mv: riding ? 0 : PL.mv, ph: PL.ph, atk: PL.atk ? PL.atk.t / PL.atk.dur : -1, kind: PL.atk ? PL.atk.kind : 0, block: PL.blocking ? 1 : 0, dead: mode === 'dead' ? 1 : 0, ride: riding, stag: PL.stag > 0 ? 1 : 0 });
+        hero.g.scale.y = damp(hero.g.scale.y, PL.sneak ? 0.8 : 1, 14, dt);
+        poseHuman(hero, { climb: !!PL.climb, mv: riding ? 0 : PL.mv, ph: PL.ph, atk: PL.atk ? PL.atk.t / PL.atk.dur : -1, kind: PL.atk ? PL.atk.kind : 0, block: PL.blocking ? 1 : 0, dead: mode === 'dead' ? 1 : 0, ride: riding, stag: PL.stag > 0 ? 1 : 0 });
         hero.g.visible = !(PL.hurtT > 0 && Math.floor(rt * 30) % 2 === 0);
         if (riding) { horse.g.position.set(PL.x, PL.y, PL.z); horse.g.rotation.y = PL.facing; poseHorse(horse, PL.ph, PL.mv); }
         else if (horseAt) { horse.g.position.set(horseAt.x, horseAt.y, horseAt.z); horse.g.rotation.y = horseAt.rot; poseHorse(horse, 0, 0); if (Math.hypot(horseAt.x - PL.x, horseAt.z - PL.z) > 70) { horse.g.visible = false; horseAt = null; } }
@@ -738,9 +849,9 @@ function boot() {
     if (nearObs && nearSite && PL.mode !== 'ship') {
       const cpq = Math.cos(camPitch), spq = Math.sin(camPitch), dxq = Math.sin(camYaw) * cpq, dzq = Math.cos(camYaw) * cpq, gy = world.siteH(nearSite);
       scan: for (let t = 1.2; t < camDist; t += 0.5) {
-        const x = camTarget.x + dxq * t, z = camTarget.z + dzq * t, y = camTarget.y + spq * t - gy;
+        const x = camTarget.x + dxq * t, z = camTarget.z + dzq * t, y = camTarget.y + spq * t;
         for (const b of nearObs) {
-          if (y > (b.h ?? 7)) continue;
+          if (b.plat || y > b.top + (b.roof || 0) || camTarget.y - 0.6 > b.top + (b.roof || 0)) continue;
           const ex = x - b.x, ez = z - b.z;
           if (b.r != null ? ex * ex + ez * ez < (b.r + 0.4) * (b.r + 0.4) : Math.abs(ex * b.c - ez * b.s) < b.hw + 0.4 && Math.abs(ex * b.s + ez * b.c) < b.hd + 0.4) { clear = Math.max(1.4, t - 0.6); break scan; }
         }
@@ -765,7 +876,7 @@ function boot() {
     const dt = Math.min(0.05, Math.max(0, raw)); rt += dt;
     input.poll();
     if (mode === 'play') {
-      for (const a of ['map', 'bag', 'log', 'menu']) if (input.hit(a)) { ui.open(a); break; }
+      for (const a of ['map', 'bag', 'log', 'menu']) if (input.hit(a)) { input.unlock(); ui.open(a); break; }
       if (mode === 'play') step(dt);
     } else if (mode === 'dialog') { if (input.hit('interact') || input.hit('attack') || input.hit('dodge')) nextLine(); }
     else if (mode === 'ui' && input.hit('menu')) ui.close();
@@ -778,7 +889,7 @@ function boot() {
     updateCamera(dt);
     world.update(dt, rt, vx, mode === 'title' ? 0 : PL.y, vz, camera, mode === 'play' ? dt : 0);
     fx.update(live ? dt : 0, W, H);
-    if (mode !== 'title' && mode !== 'loading') { ui.hud(dt, tt, camYaw, prompt && mode === 'play' ? prompt.text : null, foes); if (savedT > 0) { savedT -= dt; if (savedT <= 0) $('saved').classList.remove('on'); } const v = +$('vignette').style.opacity || 0; if (v > 0) $('vignette').style.opacity = Math.max(0, v - dt * 2.4); }
+    if (mode !== 'title' && mode !== 'loading') { ui.hud(dt, tt, camYaw, prompt && mode === 'play' ? prompt.text : null, foes, input.free && !input.locked && !input.hover && mode === 'play'); if (savedT > 0) { savedT -= dt; if (savedT <= 0) $('saved').classList.remove('on'); } const v = +$('vignette').style.opacity || 0; if (v > 0) $('vignette').style.opacity = Math.max(0, v - dt * 2.4); }
     const reg = mode === 'title' ? 'Italia' : world.regionAt(PL.x, PL.z);
     musicTick({ war: foes.some((f) => f.aware && !f.dead), sea: PL.mode === 'ship', east: ['Aegyptus', 'Syria', 'Iudaea', 'Cilicia', 'Africa', 'Pontus'].includes(reg), night: world.state.night > 0.5 });
     renderer.toneMappingExposure = world.state.exposure;
@@ -799,11 +910,13 @@ function boot() {
     slotNow: () => slotNow, setSlot: (n) => { slotNow = n; }, tracked: () => tracked, track: (id) => { tracked = id; }, objectiveOf, posOf, buildHero, combat: () => combat > 0 && foes.some((f) => f.aware && !f.dead),
     quit: () => { save(true); for (const f of foes) f.model.g.removeFromParent(); foes.length = 0; mode = 'title'; $('hud').hidden = true; ui.title(); }, shipPos: () => (PL.mode === 'ship' ? { x: PL.x, z: PL.z } : PL.shipPos),
   });
+  input.canLock = () => mode === 'play' || mode === 'dialog';
+  input.onUnlock = () => { if (mode === 'play') ui.open('menu'); };
   document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button'); if (b) b.blur(); });
   window.addEventListener('pointerdown', () => { if (mode !== 'title' && mode !== 'loading') initAudio(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { if (mode === 'play') ui.open('menu'); suspendAudio(true); } else suspendAudio(false); });
   window.addEventListener('pagehide', () => save(true));
-  window.__a = { PL, G, S, world, foes, npcs, QS, discovered, get mode() { return mode; }, get tracked() { return tracked; }, get prompt() { return prompt; }, trackedTarget,
+  window.__a = { input, get camYaw() { return camYaw; }, cities, spawnFoe, get obs() { return allObs; }, PL, G, S, world, foes, npcs, QS, discovered, get mode() { return mode; }, get tracked() { return tracked; }, get prompt() { return prompt; }, trackedTarget,
     sim(sec, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { if (mode === 'play') { step(dt); updatePeople(dt); cityT -= dt; if (cityT <= 0) { cityT = 0.3; updateCities(); } } else if (mode === 'dialog') nextLine(true); else break; } return mode; },
     start: (slot = 1) => startGame(slot, null), tp(id) { const s = world.siteById[id]; const e = entryOf(s); placePlayer(e[0], e[1]); world.streamChunks(PL.x, PL.z, 30); updateCities(); camTarget.set(PL.x, PL.y + 1.5, PL.z); }, cam(y, p, d) { camYaw = y; camPitch = p; camDistT = camDist = d; }, give, setMode, advance, ui, fastTravel, save, nextLine: () => nextLine(true) };
 
