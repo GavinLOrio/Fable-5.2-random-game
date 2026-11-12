@@ -514,5 +514,5 @@ setTimeout(async () => {
   const bc = $('btnContinue'), bn = $('btnNew'); bn.disabled = false;
   if (save && save.v === 1) { bc.hidden = false; bc.onclick = () => begin(save); bn.classList.add('ghost'); let armed = false; bn.onclick = () => { if (!armed) { armed = true; bn.textContent = 'Erase the save and start over?'; return; } G.newGame(); }; }
   else bn.onclick = () => begin(null);
-  window.__hp = { G, W, Bd, M, P, begin, input, renderer, scene, camera, setWeather: (id) => { weather = { id, t: 300 }; } };
+  window.__hp = { G, W, Bd, M, P, begin, input, renderer, scene, camera, wx, setWeather: (id) => { weather = { id, t: 300 }; } };
 }, 60);

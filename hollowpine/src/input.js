@@ -2,7 +2,8 @@
 export function createInput(canvas) {
   const keys = new Set(), pressed = new Set();
   const st = { mx: 0, my: 0, lookX: 0, lookY: 0, fire: false, aim: false, sprint: false, use: false, wheel: 0, touch: false, locked: false, canLock: () => true, onUnlock: null, onFirst: null, dragLook: false };
-  let selfExit = false, mouseFire = false, mouseAim = false, btnFire = false, btnAim = false, btnUse = false, joyId = null, joyX = 0, joyY = 0, jx = 0, jy = 0, drag = null, first = false, lockFailAt = 0;
+  let selfExit = false, mouseFire = false, mouseAim = false, btnFire = false, btnAim = false, btnUse = false, joyId = null, joyX = 0, joyY = 0, jx = 0, jy = 0, drag = null, first = false, lockFailAt = 0, fails = 0;
+  const failed = () => { lockFailAt = performance.now(); if (++fails >= 2) st.dragLook = true; };
   const joyEl = document.getElementById('joy'), knob = document.getElementById('joyknob');
   const KEY = { Space: 'jump', KeyE: 'use', KeyR: 'reload', KeyB: 'build', Tab: 'pack', KeyI: 'pack', KeyM: 'map', KeyC: 'crouch', KeyF: 'light', KeyX: 'dismantle', KeyQ: 'cancel', Escape: 'menu', KeyG: 'rotate' };
   const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'SELECT'); };
@@ -19,11 +20,11 @@ export function createInput(canvas) {
   window.addEventListener('blur', reset);
   st.reset = reset;
 
-  const lock = () => { if (!canvas.requestPointerLock || st.dragLook || performance.now() - lockFailAt < 1500) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { lockFailAt = performance.now(); st.dragLook = true; }); } catch (e) { st.dragLook = true; } };
+  const lock = () => { if (!canvas.requestPointerLock || st.dragLook || performance.now() - lockFailAt < 1500) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(failed); } catch (e) { failed(); } };
   st.lock = lock;
   st.unlock = () => { if (document.pointerLockElement === canvas) { selfExit = true; try { document.exitPointerLock(); } catch (e) { /* ignore */ } } };
-  document.addEventListener('pointerlockchange', () => { const was = st.locked; st.locked = document.pointerLockElement === canvas; if (was && !st.locked) { mouseFire = mouseAim = false; if (!selfExit && st.onUnlock) st.onUnlock(); selfExit = false; } });
-  document.addEventListener('pointerlockerror', () => { lockFailAt = performance.now(); st.dragLook = true; });
+  document.addEventListener('pointerlockchange', () => { const was = st.locked; st.locked = document.pointerLockElement === canvas; if (st.locked) fails = 0; if (was && !st.locked) { mouseFire = mouseAim = false; if (!selfExit && st.onUnlock) st.onUnlock(); selfExit = false; } });
+  document.addEventListener('pointerlockerror', failed);
   document.addEventListener('mousemove', (e) => { if (st.locked) { st.lookX += e.movementX; st.lookY += e.movementY; } });
 
   canvas.addEventListener('pointerdown', (e) => {

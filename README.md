@@ -1,9 +1,10 @@
-# Two browser games
+# Three browser games
 
-This repository holds two separate 3D games. Each is a single self-contained HTML file.
+This repository holds three separate 3D games. Each is a single self-contained HTML file.
 
 - **Aquila** (`rome/index.html`): an open-world action game set in the Roman civil war, 49-44 BC. See below.
 - **Dawnward** (`index.html`): a smaller fantasy action game.
+- **Hollowpine** (`hollowpine/index.html`): a first-person survival game on a forested island. See below.
 
 # Aquila
 
@@ -34,6 +35,32 @@ map built from real coastlines, from Britain to Upper Egypt and from Spain to Me
 | Map, gear, quests, menu | M, I, L, Esc | Buttons at the top right |
 
 Build with `node tools/build.mjs rome`. The coastline mask is generated from Natural Earth data by `node tools/genland.mjs`.
+
+# Hollowpine
+
+You wash ashore on a 2 km wide island: mostly pine forest, with the abandoned town of Ashby, the harbor of Port Hallam, a snow-capped mountain and 27 named places to find.
+
+- Survive: health, food, water and stamina; day and night; weather on a random timer (clear, overcast, rain, thunderstorm, fog, snow up high) that changes visibility, enemy sight, cold, rain collectors and crops.
+- Gather and craft: fell trees, mine rock and ore, pick plants, hunt, search crates and wrecks.
+- Build: pick a blueprint, place its ghost, then carry materials to it piece by piece. Foundations, floors, walls, doors, stairs and roofs snap together; enemies attack what you build.
+- Research: three research tables, each dearer than the last, unlock blueprints for scrap: iron tools and black-powder guns, war-era firearms, then modern weapons and armor.
+- Farm: garden plots on open ground and planter boxes inside your base, seven crops, watering and rain.
+- Fight: wolves, boars, bears, scavengers, riflemen and a warlord in Bunker 7.
+- Saving: autosaves to the browser every few seconds and, when opened as a Claude artifact, to a private cloud save.
+
+| Action | Keyboard and mouse | Touch |
+| --- | --- | --- |
+| Move, look | WASD, mouse (click to capture) | Left stick, drag the right side |
+| Sprint, jump, crouch | Shift, Space, C | Push the stick fully, Jump, Low |
+| Swing, fire, place | Left click | Hit |
+| Aim | Right click | Aim |
+| Use, gather, add material | E (hold on blueprints) | Use |
+| Reload, turn blueprint | R (or wheel) | Load, Turn |
+| Dismantle | Hold X | |
+| Hotbar | 1 to 8, wheel | Tap a slot |
+| Pack and crafting, building, map | Tab, B, M | Pack, Build, Menu |
+
+Build with `node tools/build.mjs hollowpine`.
 
 # Dawnward
 
@@ -66,6 +93,7 @@ when you dash, and which boons you pick each time you level up.
 npm install
 npm run build   # bundles src/ into index.html (Dawnward)
 node tools/build.mjs rome   # bundles rome/src/ into rome/index.html (Aquila)
+node tools/build.mjs hollowpine   # bundles hollowpine/src/ into hollowpine/index.html (Hollowpine)
 ```
 
 Source lives in `src/` (three.js, bundled with esbuild).
