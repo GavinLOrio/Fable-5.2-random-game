@@ -1,0 +1,192 @@
+<title>Hollowpine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas; survival readouts pinned low in the corners like a field kit; every menu is one tabbed ledger panel over a dark scrim. */
+:root {
+  color-scheme: dark;
+  --night: #0b0e0a;
+  --panel: rgba(17, 21, 15, 0.94);
+  --panel2: #1c2218;
+  --line: #3b4433;
+  --ink: #e8e2cf;
+  --dim: #9da38d;
+  --amber: #e2a43a;
+  --blood: #cf4a3c;
+  --water: #5aa9cc;
+  --moss: #86b45c;
+  --display: 'Saira Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif;
+  --body: 'Barlow', 'Segoe UI', system-ui, sans-serif;
+  --sl: max(16px, env(safe-area-inset-left, 0px));
+  --sr: max(16px, env(safe-area-inset-right, 0px));
+  --st: max(10px, env(safe-area-inset-top, 0px));
+  --sb: max(12px, env(safe-area-inset-bottom, 0px));
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; overflow: hidden; }
+body { margin: 0; background: var(--night); color: var(--ink); font: 500 15px/1.35 var(--body); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 0; text-wrap: balance; }
+.label { font-family: var(--display); font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; color: var(--dim); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---- HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud > * { position: absolute; }
+#clock { top: var(--st); left: var(--sl); text-shadow: 0 1px 3px #000; }
+#clock b { font-family: var(--display); font-size: 20px; letter-spacing: 0.06em; }
+#status { top: calc(var(--st) + 44px); left: var(--sl); display: flex; flex-direction: column; gap: 4px; }
+#status span { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em; font-size: 13px; background: rgba(140, 30, 20, 0.75); padding: 1px 8px; width: max-content; }
+#compass { top: var(--st); left: 50%; transform: translateX(-50%); width: min(420px, 52vw); text-align: center; }
+#compassCv { width: 100%; height: 26px; display: block; }
+#zone { font-family: var(--display); letter-spacing: 0.14em; text-transform: uppercase; font-size: 13px; color: var(--ink); text-shadow: 0 1px 3px #000; min-height: 18px; }
+#vitals { left: var(--sl); bottom: var(--sb); display: grid; gap: 5px; width: min(210px, 38vw); }
+.vit { display: grid; grid-template-columns: 46px 1fr; align-items: center; gap: 6px; }
+.vit .label { color: var(--ink); text-shadow: 0 1px 2px #000; font-size: 11px; }
+.vit i { display: block; height: 7px; background: rgba(0, 0, 0, 0.55); outline: 1px solid rgba(232, 226, 207, 0.22); }
+.vit i b { display: block; height: 100%; width: 50%; background: var(--c); transition: width 0.2s; }
+#hotbar { left: 50%; bottom: var(--sb); transform: translateX(-50%); display: flex; gap: 4px; pointer-events: auto; }
+.slot { position: relative; width: clamp(34px, 5.4vw, 52px); aspect-ratio: 1; background: rgba(12, 15, 11, 0.7); outline: 1px solid rgba(232, 226, 207, 0.2); display: grid; place-items: center; }
+.slot.sel { outline: 2px solid var(--amber); background: rgba(40, 34, 16, 0.8); }
+.slot svg { width: 68%; height: 68%; }
+.slot .k { position: absolute; top: 1px; left: 4px; font: 500 10px var(--display); color: var(--dim); }
+.slot .q { position: absolute; bottom: 0; right: 3px; font: 600 11px var(--body); }
+#ammo { right: var(--sr); bottom: var(--sb); text-align: right; text-shadow: 0 1px 3px #000; }
+#ammo b { font-family: var(--display); font-size: 30px; line-height: 1; }
+#ammo span { color: var(--dim); font-size: 15px; }
+#prompt { left: 50%; top: 58%; transform: translateX(-50%); text-align: center; text-shadow: 0 1px 3px #000, 0 0 8px #000; font-size: 15px; max-width: 80vw; }
+#prompt kbd { font: 700 13px var(--display); background: var(--ink); color: #14170f; padding: 0 6px; margin-right: 6px; border-radius: 2px; text-shadow: none; }
+#prompt .need { display: block; color: var(--dim); font-size: 13px; }
+#prompt .need b { color: var(--ink); }
+#prompt .need .lack { color: #ff9a8a; }
+#toasts { right: var(--sr); top: calc(var(--st) + 40px); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.toast { background: rgba(12, 15, 11, 0.78); border-left: 3px solid var(--amber); padding: 3px 10px; font-size: 14px; animation: tin 0.2s; max-width: 60vw; }
+.toast.bad { border-color: var(--blood); } .toast.big { font-family: var(--display); font-size: 19px; letter-spacing: 0.08em; text-transform: uppercase; }
+@keyframes tin { from { opacity: 0; transform: translateX(14px); } }
+#cross { left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255, 255, 255, 0.85); box-shadow: 0 0 2px #000; }
+#cross.gun { width: 22px; height: 22px; margin: -11px; background: none; box-shadow: none; border-radius: 0; background-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), linear-gradient(#fff, #fff); background-size: 6px 2px, 6px 2px, 2px 6px, 2px 6px; background-position: left center, right center, center top, center bottom; background-repeat: no-repeat; opacity: 0.8; filter: drop-shadow(0 0 1px #000); }
+#hitm { left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px; opacity: 0; background: linear-gradient(45deg, transparent 46%, #fff 46%, #fff 54%, transparent 54%), linear-gradient(-45deg, transparent 46%, #fff 46%, #fff 54%, transparent 54%); -webkit-mask: radial-gradient(circle, transparent 5px, #000 6px); mask: radial-gradient(circle, transparent 5px, #000 6px); }
+#hitm.kill { filter: drop-shadow(0 0 0 #f44) hue-rotate(0); background: linear-gradient(45deg, transparent 44%, #ff5a48 44%, #ff5a48 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, #ff5a48 44%, #ff5a48 56%, transparent 56%); }
+#vig { inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(170, 20, 10, 0.75) 100%); opacity: 0; }
+#scope { inset: 0; background: radial-gradient(circle at center, transparent 0, transparent min(34vh, 34vw), #000 calc(min(34vh, 34vw) + 2px)); }
+#scope::before, #scope::after { content: ""; position: absolute; background: rgba(0, 0, 0, 0.8); }
+#scope::before { left: 50%; top: calc(50% - min(34vh, 34vw)); width: 1px; height: calc(min(34vh, 34vw) * 2); }
+#scope::after { top: 50%; left: calc(50% - min(34vh, 34vw)); height: 1px; width: calc(min(34vh, 34vw) * 2); }
+#menuBtn { top: var(--st); right: var(--sr); pointer-events: auto; font-family: var(--display); letter-spacing: 0.12em; text-transform: uppercase; font-size: 13px; background: rgba(12, 15, 11, 0.7); outline: 1px solid rgba(232, 226, 207, 0.25); padding: 5px 12px; }
+
+/* ---- touch */
+#joy { position: fixed; width: 112px; height: 112px; margin: -56px; border-radius: 50%; border: 2px solid rgba(232, 226, 207, 0.3); display: none; pointer-events: none; }
+#joy.on { display: block; }
+#joyknob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; border-radius: 50%; background: rgba(232, 226, 207, 0.4); transform: translate(-50%, -50%); }
+#touch { position: fixed; right: var(--sr); bottom: calc(var(--sb) + 64px); display: none; grid-template-columns: repeat(3, 58px); gap: 9px; }
+body.touch #touch { display: grid; }
+body.touch #vitals { bottom: calc(var(--sb) + 62px); }
+#touch button { width: 58px; height: 58px; border-radius: 50%; background: rgba(12, 15, 11, 0.55); outline: 1px solid rgba(232, 226, 207, 0.35); font: 700 12px var(--display); letter-spacing: 0.08em; text-transform: uppercase; touch-action: none; }
+#touch button.on, #touch button:active { background: rgba(226, 164, 58, 0.5); }
+#touch .fire { background: rgba(207, 74, 60, 0.45); }
+
+/* ---- panels */
+.scrim { position: fixed; inset: 0; background: rgba(6, 8, 5, 0.72); display: grid; place-items: center; padding: var(--st) var(--sr) var(--sb) var(--sl); }
+#ui .box { width: min(1040px, 100%); height: min(680px, 100%); background: var(--panel); outline: 1px solid var(--line); display: grid; grid-template-rows: auto 1fr; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { font-family: var(--display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 16px; padding: 11px 16px; color: var(--dim); border-bottom: 3px solid transparent; white-space: nowrap; }
+.tabs button.on { color: var(--ink); border-color: var(--amber); }
+.tabs .x { margin-left: auto; color: var(--ink); }
+#uiBody { overflow: auto; padding: 16px; min-height: 0; }
+.cols { display: grid; grid-template-columns: 1fr 300px; gap: 18px; min-height: 100%; }
+@media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; align-content: start; }
+.tile { position: relative; aspect-ratio: 1; background: var(--panel2); outline: 1px solid var(--line); display: grid; place-items: center; }
+.tile svg { width: 58%; height: 58%; }
+.tile.sel { outline: 2px solid var(--amber); }
+.tile .q { position: absolute; right: 4px; bottom: 1px; font-size: 12px; font-weight: 600; }
+.tile .hk { position: absolute; left: 4px; top: 1px; font: 700 11px var(--display); color: var(--amber); }
+.detail { background: var(--panel2); outline: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 10px; align-self: start; }
+.detail h3 { font-size: 22px; } .detail p { margin: 0; color: var(--dim); }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.btn { font-family: var(--display); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; font-size: 14px; padding: 7px 14px; background: var(--amber); color: #17140a; }
+.btn.ghost { background: none; outline: 1px solid var(--line); color: var(--ink); }
+.btn.sm { padding: 3px 9px; font-size: 13px; }
+.btn[disabled] { opacity: 0.35; cursor: default; }
+.list { display: grid; gap: 6px; }
+.sec { margin: 18px 0 8px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; } .sec:first-child { margin-top: 0; }
+.sec h3 { font-size: 18px; color: var(--amber); } .sec span { color: var(--dim); font-size: 13px; }
+.rec { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; align-items: center; background: var(--panel2); outline: 1px solid var(--line); padding: 6px 10px; }
+.rec svg { width: 34px; height: 34px; }
+.rec .nm { font-weight: 600; } .rec .nm small { color: var(--dim); font-weight: 400; }
+.cost { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; color: var(--dim); }
+.cost .lack { color: #ff9a8a; } .cost b { color: var(--ink); font-weight: 600; }
+.rec.locked { opacity: 0.55; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.card { text-align: left; background: var(--panel2); outline: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.card:hover:not([disabled]) { outline-color: var(--amber); }
+.card b { font-family: var(--display); font-size: 17px; letter-spacing: 0.06em; text-transform: uppercase; }
+.card p { margin: 0; color: var(--dim); font-size: 13px; }
+.card[disabled] { opacity: 0.5; cursor: default; }
+.tag { font: 500 11px var(--display); letter-spacing: 0.1em; text-transform: uppercase; padding: 0 6px; outline: 1px solid var(--line); color: var(--dim); width: max-content; }
+.tag.ok { color: var(--moss); outline-color: var(--moss); } .tag.go { color: var(--amber); outline-color: var(--amber); }
+.tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .tiers { grid-template-columns: 1fr; } }
+#mapWrap { display: grid; place-items: center; gap: 8px; }
+#mapCv { width: min(100%, 560px); aspect-ratio: 1; outline: 1px solid var(--line); background: #1b3038; }
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 3px 18px; color: var(--dim); font-size: 14px; }
+.keys b { color: var(--ink); display: inline-block; min-width: 96px; font-weight: 600; }
+.opt { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.opt .seg { display: flex; } .opt .seg button { padding: 4px 12px; outline: 1px solid var(--line); font-size: 14px; } .opt .seg button.on { background: var(--amber); color: #17140a; }
+input[type=range] { accent-color: var(--amber); width: 150px; }
+
+#title { background: linear-gradient(180deg, rgba(6, 8, 5, 0.25), rgba(6, 8, 5, 0.86) 62%); align-content: end; justify-items: start; }
+#title .in { width: min(640px, 100%); display: flex; flex-direction: column; gap: 14px; padding-bottom: 5vh; }
+#title h1 { font-size: clamp(54px, 11vw, 112px); line-height: 0.86; letter-spacing: 0.02em; }
+#title h1 span { color: var(--amber); }
+#title p { margin: 0; max-width: 52ch; color: var(--ink); }
+#loadmsg { color: var(--dim); min-height: 20px; }
+#dead { background: rgba(60, 6, 4, 0.72); text-align: center; }
+#dead h1 { font-size: clamp(44px, 9vw, 90px); }
+#dead .in { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } .vit i b { transition: none; } }
+</style>
+<canvas id="c" tabindex="0"></canvas>
+
+<div id="hud" hidden>
+  <div id="clock"><b id="clockT" class="num">Day 1 · 08:00</b><div class="label" id="clockS">Hollowpine Island</div></div>
+  <div id="status"></div>
+  <div id="compass"><canvas id="compassCv" width="840" height="52"></canvas><div id="zone"></div></div>
+  <button id="menuBtn" data-act="menu">Menu</button>
+  <div id="toasts"></div>
+  <div id="vig"></div>
+  <div id="scope" hidden></div>
+  <div id="cross"></div>
+  <div id="hitm"></div>
+  <div id="prompt"></div>
+  <div id="vitals">
+    <div class="vit"><span class="label">Health</span><i><b id="bHp" style="--c: var(--blood)"></b></i></div>
+    <div class="vit"><span class="label">Food</span><i><b id="bFood" style="--c: var(--amber)"></b></i></div>
+    <div class="vit"><span class="label">Water</span><i><b id="bWater" style="--c: var(--water)"></b></i></div>
+    <div class="vit"><span class="label">Stamina</span><i><b id="bStam" style="--c: var(--moss)"></b></i></div>
+  </div>
+  <div id="hotbar"></div>
+  <div id="ammo"></div>
+</div>
+<div id="joy"><div id="joyknob"></div></div>
+<div id="touch">
+  <button data-act="reload">Load</button><button data-act="aim">Aim</button><button data-act="jump">Jump</button>
+  <button data-act="build">Build</button><button data-act="use">Use</button><button data-act="fire" class="fire">Hit</button>
+  <button data-act="pack">Pack</button><button data-act="rotate">Turn</button><button data-act="crouch">Low</button>
+</div>
+
+<div id="ui" class="scrim" hidden><div class="box"><div class="tabs" id="tabs"></div><div id="uiBody"></div></div></div>
+
+<div id="title" class="scrim">
+  <div class="in">
+    <span class="label">A survival game · 4 km² of forest, one town, one harbor, one mountain</span>
+    <h1>Hollow<span>pine</span></h1>
+    <p>The trawler broke up on the rocks in the night. You wake on the sand with empty hands. Fell trees, raise walls, learn what the island's dead left behind, and arm yourself before the scavengers find your fire.</p>
+    <div class="row"><button class="btn" id="btnContinue" hidden>Continue</button><button class="btn" id="btnNew" disabled>New game</button></div>
+    <div id="loadmsg">Growing the forest…</div>
+  </div>
+</div>
+<div id="dead" class="scrim" hidden><div class="in"><h1>You died</h1><p id="deadMsg"></p><button class="btn" id="btnRespawn">Wake up</button></div></div>
+<script>/*__BUNDLE__*/</script>

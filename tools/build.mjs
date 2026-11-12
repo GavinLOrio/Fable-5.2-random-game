@@ -1,14 +1,15 @@
 // Bundles a game into a single self-contained index.html (no server or network needed to play).
-//   node tools/build.mjs            -> Dawnward  (src/        -> index.html)
-//   node tools/build.mjs rome       -> Aquila    (rome/src/   -> rome/index.html)
+//   node tools/build.mjs              -> Dawnward    (src/             -> index.html)
+//   node tools/build.mjs rome         -> Aquila      (rome/src/        -> rome/index.html)
+//   node tools/build.mjs hollowpine   -> Hollowpine  (hollowpine/src/  -> hollowpine/index.html)
 // An optional last argument writes a copy of the page without the <html> wrapper.
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
-const rome = args[0] === 'rome';
-const extra = rome ? args[1] : args[0];
-const entry = rome ? 'rome/src/main.js' : 'src/main.js', pagePath = rome ? 'rome/page.html' : 'src/page.html', outPath = rome ? 'rome/index.html' : 'index.html';
+const sub = ['rome', 'hollowpine'].includes(args[0]) ? args[0] : null;
+const extra = sub ? args[1] : args[0];
+const entry = sub ? `${sub}/src/main.js` : 'src/main.js', pagePath = sub ? `${sub}/page.html` : 'src/page.html', outPath = sub ? `${sub}/index.html` : 'index.html';
 const out = await build({ entryPoints: [entry], bundle: true, minify: true, format: 'iife', target: 'es2020', write: false, legalComments: 'none' });
 const js = out.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const page = readFileSync(pagePath, 'utf8').replace('/*__BUNDLE__*/', () => js);
