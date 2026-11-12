@@ -6,7 +6,7 @@ const rnd = (a, b) => a + Math.random() * (b - a), ri = (a, b) => Math.floor(rnd
 export function rollLoot(table, n) { const out = {}; let tot = 0; for (const e of table) tot += e[3]; for (let i = 0; i < n; i++) { let q = Math.random() * tot; for (const e of table) { q -= e[3]; if (q <= 0) { out[e[0]] = (out[e[0]] || 0) + ri(e[1], e[2]); break; } } } return out; }
 
 export function createMobs(scene, W, G) {
-  const M = { list: [] }, P = G.player, pos = { x: 0, z: 0 };
+  const M = { list: [] }, P = G.P, pos = { x: 0, z: 0 };
   M.spawn = (type, x, z, y = null, sp = null) => {
     const def = MOBS[type], rig = mobModel(type, def);
     const m = { type, def, rig, x, z, y: y != null ? y : W.H(x, z), vy: 0, yaw: Math.random() * 6.28, hp: def.hp, state: 'idle', t: rnd(0, 3), tx: x, tz: z, hx: x, hz: z, cd: 0, phase: Math.random() * 6, sp, alert: 0, steer: 0, steerT: 0, los: false, losT: Math.random(), wind: 0, dead: 0, speed: 0, ambient: !sp };
@@ -60,7 +60,7 @@ export function createMobs(scene, W, G) {
       if (m.dead) { m.dead += dt; rig.g.rotation.z = Math.min(1.5, m.dead * 4); rig.g.position.y = m.y + Math.min(0.15, m.dead) * (rig.human ? 1 : 0.5); if (m.dead > 120 || (d > 220)) remove(m); continue; }
       if (d > 240) { if (m.sp) m.sp.alive--; remove(m); continue; }
       if (d > 130) { rig.g.visible = false; continue; } rig.g.visible = true;
-      const def = m.def, sightK = (P.crouch ? 0.55 : 1) * (night && !P.lit ? 0.7 : 1) * (type(m) === 'wolf' && night ? 1.4 : 1);
+      const def = m.def, sightK = (P.crouch ? 0.55 : 1) * (night && !P.lit ? 0.7 : 1) * (type(m) === 'wolf' && night ? 1.4 : 1) * G.sightK();
       m.losT -= dt; if (m.losT <= 0) { m.losT = 0.35 + Math.random() * 0.2; const ey = m.y + rig.h * 0.85, vx = px - m.x, vy = py + 1.5 - ey, vz = pz - m.z, L = Math.hypot(vx, vy, vz) || 1; m.los = d < 110 && W.ray(m.x, ey, m.z, vx / L, vy / L, vz / L, L) >= L - 0.4; }
       const sees = !P.dead && m.los && d < def.sight * sightK; if (sees && !def.passive) m.alert = Math.max(m.alert, 5);
       m.alert -= dt; m.cd -= dt; m.t -= dt; m.blocked = null; m.ground = W.H(m.x, m.z);

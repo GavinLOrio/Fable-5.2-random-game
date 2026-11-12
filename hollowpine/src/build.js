@@ -1,7 +1,7 @@
 // Hollowpine building: place a ghost blueprint, then carry materials to it piece by piece until it stands.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { STRUCT_BY_ID } from './data.js';
+import { STRUCT_BY_ID, CROPS } from './data.js';
 
 const M = 3, WH = 2.7, PI = Math.PI;
 const LOG = [0x7a5a3a, 0x6b4e32, 0x80603c], PLANK = 0x8a6d4a, STONE = 0x8d9093, STEEL = 0x6b7178;
@@ -36,6 +36,8 @@ const MODELS = {
   research2: () => { const a = []; for (const sx of [-0.9, 0.9]) for (const sz of [-0.4, 0.4]) a.push(box(0.1, 0.9, 0.1, sx, 0.45, sz, 0x3d4246)); a.push(box(2.2, 0.08, 1.0, 0, 0.92, 0, STEEL), box(2.0, 0.05, 0.9, 0, 0.3, 0, 0x5a4630), box(0.26, 0.2, 0.2, -0.8, 1.06, 0.3, 0x3d4246), box(0.1, 0.12, 0.34, -0.8, 1.2, 0.3, 0x55585a), box(0.5, 0.3, 0.3, 0.6, 1.1, -0.2, 0x4c5540), log(0.5, 0.03, 0.1, 1.2, -0.3, 'y', 0x3d4246), box(0.2, 0.1, 0.2, 0.1, 1.46, -0.2, 0xd9c070, 0, 0.5), box(0.6, 0.5, 0.03, -0.2, 1.4, -0.48, 0x4a6a8a), box(0.5, 0.26, 0.4, 0.5, 0.46, 0.1, 0x7a3a30)); return a; },
   research3: () => { const a = []; a.push(box(2.4, 0.9, 1.0, 0, 0.45, 0, 0x3a3f45), box(2.5, 0.06, 1.1, 0, 0.93, 0, 0x8f979e)); for (const [x, ry] of [[-0.7, 0.3], [0, 0], [0.7, -0.3]]) { a.push(box(0.62, 0.42, 0.04, x, 1.32, -0.3 + Math.abs(x) * 0.12, 0x1c2023, ry), box(0.56, 0.36, 0.01, x, 1.32, -0.275 + Math.abs(x) * 0.12, 0x58d0c0, ry), box(0.06, 0.2, 0.06, x, 1.04, -0.3 + Math.abs(x) * 0.12, 0x1c2023)); } a.push(box(0.6, 0.03, 0.2, 0, 0.98, 0.2, 0x1c2023), log(1.6, 0.02, 1.1, 1.75, -0.4, 'y', 0x8f979e), box(0.3, 0.3, 0.5, -1.0, 1.1, 0.1, 0x4c5540), box(0.4, 0.5, 0.4, 0.9, 0.25, 0.8, 0x4c5540)); return a; },
   tower: () => { const a = []; for (const sx of [-1.6, 1.6]) for (const sz of [-1.6, 1.6]) a.push(log(7.6, 0.16, sx, 3.8, sz, 'y')); for (let i = 0; i < 12; i++) a.push(log(3.6, 0.15, -1.65 + i * 0.3, 4.85, 0, 'z')); for (const [x, z, ax, l] of [[0, -1.7, 'x', 3.6], [-1.7, 0, 'z', 3.6], [1.7, 0, 'z', 3.6], [-0.7, 1.7, 'x', 2.2]]) { a.push(log(l, 0.07, x, 5.5, z, ax), log(l, 0.07, x, 6.0, z, ax)); } for (let i = 0; i < 20; i++) a.push(box(1.2, 0.07, 0.38, 1.1, 0.215 + i * 0.25, 1.8 + 7.2 - (i + 0.5) * 0.36, i % 2 ? PLANK : 0x7d6142)); for (const s of [0.45, 1.75]) a.push(box(0.1, 0.24, 8.8, s, 2.4, 5.4, 0x5a4630, 0, -0.607)); for (let i = 0; i < 8; i++) a.push(box(0.5, 0.05, 4.2, -1.75 + i * 0.5, 7.7, 0, 0x9a8a5a, 0, 0.12)); return a; },
+  plot: () => { const a = [box(1.7, 0.1, 1.7, 0, 0.03, 0, 0x3a2a1c)]; for (let i = 0; i < 4; i++) a.push(box(1.6, 0.07, 0.22, 0, 0.1, -0.6 + i * 0.4, 0x4a3524)); for (const [x, z, ax] of [[0, -0.9, 'x'], [0, 0.9, 'x'], [-0.9, 0, 'z'], [0.9, 0, 'z']]) a.push(log(1.9, 0.05, x, 0.06, z, ax)); return a; },
+  planter: () => { const a = [box(1.5, 0.1, 0.8, 0, 0.05, 0, 0x5a4630)]; for (const z of [-0.37, 0.37]) for (let i = 0; i < 2; i++) a.push(box(1.5, 0.2, 0.06, 0, 0.2 + i * 0.21, z, i ? PLANK : 0x7d6142)); for (const x of [-0.72, 0.72]) a.push(box(0.06, 0.42, 0.8, x, 0.3, 0, 0x7d6142)); a.push(box(1.38, 0.3, 0.68, 0, 0.3, 0, 0x3a2a1c)); return a; },
   lamp: () => [log(2.6, 0.06, 0, 1.3, 0, 'y'), box(0.5, 0.06, 0.06, 0.2, 2.55, 0, 0x5a4630), box(0.2, 0.28, 0.2, 0.4, 2.3, 0, 0xffd27a), box(0.24, 0.04, 0.24, 0.4, 2.46, 0, 0x3d4246)],
 };
 // Colliders: [x, y0, z, sx, sy, sz]
@@ -46,7 +48,7 @@ const COLS = {
   foundation: [[0, -0.3, 0, M, 0.3, M]], floor: [[0, -0.3, 0, M, 0.3, M]], roof: [[0, 0.6, 0, M, 0.25, M]],
   stairs: [...Array(9)].map((_, i) => [0, i * 0.3, 1.5 - (i + 0.5) / 3, 1.6, 0.3, 0.34]),
   campfire: [[0, 0, 0, 0.9, 0.3, 0.9]], leanto: [[0, 0, -0.9, 2.6, 0.5, 0.3]], chest: [[0, 0, 0, 1.1, 0.64, 0.6]], collector: [[0, 0, 0, 0.6, 0.5, 0.6]], spikes: [[0, 0, 0, 2.8, 1.0, 0.9]], furnace: [[0, 0, 0, 1.6, 2.0, 1.6]],
-  research1: [[0, 0, 0, 2.0, 0.92, 0.9]], research2: [[0, 0, 0, 2.2, 0.96, 1.0]], research3: [[0, 0, 0, 2.4, 0.96, 1.0]], lamp: [[0, 0, 0, 0.2, 2.6, 0.2]],
+  plot: [], planter: [[0, 0, 0, 1.5, 0.5, 0.8]], research1: [[0, 0, 0, 2.0, 0.92, 0.9]], research2: [[0, 0, 0, 2.2, 0.96, 1.0]], research3: [[0, 0, 0, 2.4, 0.96, 1.0]], lamp: [[0, 0, 0, 0.2, 2.6, 0.2]],
   tower: [[0, 4.7, 0, 3.6, 0.3, 3.6], [0, 5.0, -1.7, 3.6, 1.1, 0.14], [-1.7, 5.0, 0, 0.14, 1.1, 3.6], [1.7, 5.0, 0, 0.14, 1.1, 3.6], [-0.7, 5.0, 1.7, 2.2, 1.1, 0.14], ...[...Array(20)].map((_, i) => [1.1, i * 0.25, 9.0 - (i + 0.5) * 0.36, 1.2, 0.25, 0.38])],
 };
 const CENTER = { found: 0, floor: 0, wall: 1.35, door: 1.0, stairs: 1.35, free: 0.5 };
@@ -82,11 +84,29 @@ export function createBuild(scene, W) {
       s.partMeshes = partsOf(s.type).map((g) => { const m = new THREE.Mesh(g, ghostMat); s.group.add(m); return m; }); refresh(s);
     }
   }
+  // crops growing in a plot or planter
+  const cropGeo = {};
+  function cropGeos(id) {
+    if (cropGeo[id]) return cropGeo[id]; const c = CROPS[id], leaves = [], fruit = [];
+    for (let i = 0; i < 5; i++) { const g = new THREE.ConeGeometry(0.05 + c.h * 0.04, c.h, 4); g.translate(0, c.h / 2, 0); g.rotateZ(i ? 0.5 : 0); g.rotateY(i * 1.57); leaves.push(tint(g, c.leaf)); }
+    if (id === 'pumpkin') { const g = new THREE.IcosahedronGeometry(0.2, 1); g.scale(1, 0.75, 1); g.translate(0.12, 0.14, 0.1); fruit.push(tint(g, c.color)); }
+    else if (id === 'corn') for (const sgn of [-1, 1]) { const g = new THREE.CylinderGeometry(0.035, 0.05, 0.26, 6); g.rotateZ(sgn * 0.5); g.translate(sgn * 0.1, c.h * 0.55, 0); fruit.push(tint(g, c.color)); }
+    else if (id === 'carrot' || id === 'potato') { const g = id === 'carrot' ? new THREE.ConeGeometry(0.06, 0.16, 6) : new THREE.IcosahedronGeometry(0.08, 0); g.translate(0.1, 0.05, 0.06); const t1 = tint(g, c.color); fruit.push(t1); const h = t1.clone(); h.translate(-0.2, 0, -0.12); fruit.push(h); }
+    else for (let i = 0; i < 6; i++) { const g = new THREE.IcosahedronGeometry(0.045, 0); g.translate(Math.cos(i * 1.05) * 0.14, c.h * (0.55 + (i % 3) * 0.14), Math.sin(i * 1.05) * 0.14); fruit.push(tint(g, c.color)); }
+    return cropGeo[id] = [mergeGeometries(leaves), mergeGeometries(fruit)];
+  }
+  Bd.setCrop = (s) => {
+    if (s.cropG) { s.group.remove(s.cropG); s.cropG = null; } if (!s.crop || !s.done) return;
+    const [lg, fg] = cropGeos(s.crop.id), g = new THREE.Group(), spots = s.type === 'plot' ? [[-0.42, -0.42], [0.42, -0.4], [-0.4, 0.42], [0.42, 0.42]] : [[-0.38, 0], [0.38, 0]], y = s.type === 'plot' ? 0.1 : 0.45;
+    spots.forEach(([x, z], i) => { const p = new THREE.Group(); p.position.set(x, y, z); p.rotation.y = i * 1.3; const l = new THREE.Mesh(lg, solidMat); l.castShadow = true; const f = new THREE.Mesh(fg, solidMat); f.name = 'fruit'; p.add(l, f); g.add(p); });
+    s.group.add(g); s.cropG = g; Bd.growCrop(s);
+  };
+  Bd.growCrop = (s) => { if (!s.cropG) return; const k = 0.2 + 0.8 * Math.min(1, s.crop.g); for (const p of s.cropG.children) { p.scale.setScalar(k); p.children[1].visible = s.crop.g >= 1; } };
   function refresh(s) { if (!s.partMeshes) return; const k = Math.floor(s.partMeshes.length * added(s) / total(s.def)); s.partMeshes.forEach((m, i) => { const on = i < k; m.material = on ? solidMat : ghostMat; m.castShadow = on; }); }
 
   Bd.place = (type, x, y, z, yaw, o = {}) => {
-    const def = STRUCT_BY_ID[type], s = { type, def, x, y, z, yaw, done: !!o.done, prog: o.prog || {}, hp: o.hp != null ? o.hp : def.hp, cols: [], group: new THREE.Group(), open: !!o.open, inv: o.inv || (type === 'chest' ? {} : null) };
-    s.group.position.set(x, y, z); s.group.rotation.y = yaw; scene.add(s.group); rebuild(s); setColliders(s, s.done); if (s.done && s.open) for (const c of s.cols) c.off = true;
+    const def = STRUCT_BY_ID[type], s = { type, def, x, y, z, yaw, done: !!o.done, prog: o.prog || {}, hp: o.hp != null ? o.hp : def.hp, cols: [], group: new THREE.Group(), open: !!o.open, inv: o.inv || (type === 'chest' ? {} : null), crop: o.crop || null, water: o.water != null ? o.water : 1 };
+    s.group.position.set(x, y, z); s.group.rotation.y = yaw; scene.add(s.group); rebuild(s); Bd.setCrop(s); setColliders(s, s.done); if (s.done && s.open) for (const c of s.cols) c.off = true;
     Bd.structs.push(s); return s;
   };
   Bd.remove = (s) => { setColliders(s, false); scene.remove(s.group); const i = Bd.structs.indexOf(s); if (i >= 0) Bd.structs.splice(i, 1); };
@@ -154,7 +174,7 @@ export function createBuild(scene, W) {
   };
   Bd.confirm = () => (Bd.valid ? Bd.place(Bd.placing, Bd.gx, Bd.gy, Bd.gz, Bd.gyaw) : null);
   Bd.update = (t) => { for (const s of Bd.structs) if (s.flame) { const k = 0.85 + Math.sin(t * 13 + s.x) * 0.12 + Math.sin(t * 7.3) * 0.1; s.flame.scale.set(k, 0.8 + k * 0.4, k); } };
-  Bd.save = () => Bd.structs.map((s) => [s.type, +s.x.toFixed(2), +s.y.toFixed(2), +s.z.toFixed(2), +s.yaw.toFixed(3), s.done ? 1 : 0, s.prog, Math.round(s.hp), s.open ? 1 : 0, s.inv]);
-  Bd.load = (arr) => { for (const s of Bd.structs.slice()) Bd.remove(s); for (const a of arr || []) if (STRUCT_BY_ID[a[0]]) Bd.place(a[0], a[1], a[2], a[3], a[4], { done: !!a[5], prog: a[6] || {}, hp: a[7], open: !!a[8], inv: a[9] }); };
+  Bd.save = () => Bd.structs.map((s) => [s.type, +s.x.toFixed(2), +s.y.toFixed(2), +s.z.toFixed(2), +s.yaw.toFixed(3), s.done ? 1 : 0, s.prog, Math.round(s.hp), s.open ? 1 : 0, s.inv, s.crop ? [s.crop.id, +s.crop.g.toFixed(3), +s.crop.wet.toFixed(2)] : 0, s.water]);
+  Bd.load = (arr) => { for (const s of Bd.structs.slice()) Bd.remove(s); for (const a of arr || []) if (STRUCT_BY_ID[a[0]]) Bd.place(a[0], a[1], a[2], a[3], a[4], { done: !!a[5], prog: a[6] || {}, hp: a[7], open: !!a[8], inv: a[9], crop: a[10] ? { id: a[10][0], g: a[10][1], wet: a[10][2] } : null, water: a[11] }); };
   return Bd;
 }

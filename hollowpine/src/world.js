@@ -217,7 +217,7 @@ export function createWorld(scene, opts) {
   function addNode(type, x, z, s) {
     const t = NT[type], n = { id: W.nodes.length, type, x, z, y: H(x, z), s, alive: true, hp: t.hp || 0, day: 0, rot: jr() * 6.28 };
     W.nodes.push(n); const k = key(Math.floor(x / NC), Math.floor(z / NC)); let a = nodeHash.get(k); if (!a) nodeHash.set(k, a = []); a.push(n);
-    if (t.solid) n.col = W.addCollider({ x, z, r: t.solid * s * 0.8, y0: n.y - 1, y1: n.y + t.solid * s * 1.3 });
+    if (t.solid) n.col = W.addCollider({ x, z, r: t.solid * s * 0.8, y0: n.y - 1, y1: n.y + t.solid * s * 1.3, node: n });
     return n;
   }
   W.nodesNear = (x, z, r, out) => { out.length = 0; for (let iz = Math.floor((z - r) / NC); iz <= Math.floor((z + r) / NC); iz++) for (let ix = Math.floor((x - r) / NC); ix <= Math.floor((x + r) / NC); ix++) { const a = nodeHash.get(key(ix, iz)); if (a) for (const n of a) out.push(n); } return out; };
@@ -247,7 +247,7 @@ export function createWorld(scene, opts) {
   const branch = (len, y, ry, rz) => { const g = new THREE.CylinderGeometry(0.03, 0.07, len, 4); g.translate(0, len / 2, 0); g.rotateZ(rz); g.rotateY(ry); g.translate(0, y, 0); return paint(g, 0x6f675c, false); };
   const nearGeo = [
     merge([trunk(0.3, 0.1, 8.5, 0x4a3524), cone(2.5, 3.6, 2.4, 8, 0x16301a, 0x24451f), cone(2.0, 3.3, 4.6, 8, 0x18361c, 0x2a4d22), cone(1.45, 3.0, 6.7, 7, 0x1b3a1e, 0x305626), cone(0.85, 2.6, 8.7, 6, 0x1f4020, 0x3a6229)]),
-    merge([trunk(0.32, 0.16, 5, 0x5b4a3a), blob(2.3, 0, 6.2, 0, 0x33571f), blob(1.7, 1.5, 5.1, 0.6, 0x2c4d1c), blob(1.6, -1.3, 5.3, -0.8, 0x3a6124), blob(1.4, 0.2, 7.6, -0.4, 0x426b28)]),
+    merge([trunk(0.32, 0.16, 5, 0x5b4a3a), blob(2.3, 0, 6.2, 0, 0x33571f), blob(1.7, 1.5, 5.1, 0.6, 0x2c4d1c, 0), blob(1.6, -1.3, 5.3, -0.8, 0x3a6124, 0), blob(1.4, 0.2, 7.6, -0.4, 0x426b28, 0)]),
     merge([trunk(0.26, 0.07, 7.5, 0x6f675c), branch(1.9, 3.6, 0.4, 0.9), branch(1.5, 4.6, 2.6, -1.0), branch(1.3, 5.4, 4.4, 0.8), branch(1.0, 6.2, 1.2, -0.7)]),
   ];
   const farGeo = [
@@ -299,17 +299,24 @@ export function createWorld(scene, opts) {
   }
   const stickG = (() => { const a = []; for (let i = 0; i < 4; i++) { const g = new THREE.CylinderGeometry(0.025, 0.035, 0.9 + i * 0.12, 4); g.rotateZ(Math.PI / 2); g.rotateY(i * 0.9); g.translate((i - 1.5) * 0.08, 0.05 + i * 0.03, (i % 2) * 0.1); a.push(paint(g, 0x7a5c3c, false)); } return merge(a); })();
   const stoneG = merge([paint(new THREE.DodecahedronGeometry(0.2, 0).translate(0, 0.1, 0), 0x8d9093), paint(new THREE.DodecahedronGeometry(0.13, 0).translate(0.26, 0.06, 0.1), 0x7e8285)]);
-  const bushG = merge([blob(0.7, 0, 0.55, 0, 0x2f5a22), blob(0.5, 0.5, 0.45, 0.2, 0x38682a), blob(0.5, -0.4, 0.42, -0.3, 0x2a5220), ...[...Array(9)].map((_, i) => paint(new THREE.IcosahedronGeometry(0.07, 0).translate(Math.cos(i * 2.4) * 0.62, 0.45 + (i % 3) * 0.22, Math.sin(i * 2.4) * 0.62), 0xb0243f, false))]);
+  const bushG = merge([blob(0.7, 0, 0.55, 0, 0x2f5a22, 0), blob(0.5, 0.5, 0.45, 0.2, 0x38682a, 0), blob(0.5, -0.4, 0.42, -0.3, 0x2a5220, 0), ...[...Array(7)].map((_, i) => paint(new THREE.TetrahedronGeometry(0.1, 0).translate(Math.cos(i * 2.4) * 0.62, 0.45 + (i % 3) * 0.22, Math.sin(i * 2.4) * 0.62), 0xb0243f, false))]);
   const mushG = merge([paint(new THREE.CylinderGeometry(0.03, 0.04, 0.16, 5).translate(0, 0.08, 0), 0xe8dcc4, false), paint(new THREE.SphereGeometry(0.11, 7, 4, 0, 6.28, 0, 1.5).translate(0, 0.14, 0), 0xb0683a, false), paint(new THREE.CylinderGeometry(0.02, 0.03, 0.1, 5).translate(0.16, 0.05, 0.06), 0xe8dcc4, false), paint(new THREE.SphereGeometry(0.07, 7, 4, 0, 6.28, 0, 1.5).translate(0.16, 0.09, 0.06), 0xb0683a, false)]);
   const flaxG = merge([...Array(7)].map((_, i) => { const g = new THREE.ConeGeometry(0.035, 1.0 + (i % 3) * 0.2, 3); g.translate(0, 0.55, 0); g.rotateZ(((i % 3) - 1) * 0.22); g.rotateY(i * 0.9); g.translate(Math.cos(i * 0.9) * 0.14, 0, Math.sin(i * 0.9) * 0.14); return paint(g, i % 2 ? 0x9cba58 : 0x7ea044); }));
-  const bould = (c, c2) => merge([paint(new THREE.DodecahedronGeometry(1.1, 1).scale(1, 0.8, 0.9).translate(0, 0.5, 0), c), paint(new THREE.DodecahedronGeometry(0.6, 0).translate(0.8, 0.25, 0.4), c2)]);
+  const bould = (c, c2) => merge([paint(new THREE.DodecahedronGeometry(1.1, 0).scale(1, 0.8, 0.9).translate(0, 0.5, 0), c), paint(new THREE.DodecahedronGeometry(0.6, 0).translate(0.8, 0.25, 0.4), c2)]);
   const nodeGeo = { sticks: stickG, stone: stoneG, bush: bushG, mushroom: mushG, flax: flaxG, boulder: bould(0x7f8386, 0x6f7376), iron: bould(0x7c5a48, 0xa5532f), sulfur: bould(0x8f8a5a, 0xcdbb35) };
   const nodeMesh = {};
-  for (const type in nodeGeo) { const list = W.nodes.filter((n) => n.type === type), m = new THREE.InstancedMesh(nodeGeo[type], treeMat, Math.max(1, list.length)); list.forEach((n, j) => { n.mesh = m; n.j = j; D.position.set(n.x, n.y - 0.03, n.z); D.rotation.set(0, n.rot, 0); D.scale.setScalar(n.s); D.updateMatrix(); m.setMatrixAt(j, D.matrix); n.mat = D.matrix.clone(); }); m.frustumCulled = false; m.castShadow = type === 'boulder' || type === 'iron' || type === 'sulfur' || type === 'bush'; m.receiveShadow = true; scene.add(m); nodeMesh[type] = m; }
+  const nodeChunks = [], nper = new Map();
+  for (const n of W.nodes) { if (!nodeGeo[n.type]) continue; const k = n.type + ':' + (Math.floor((n.z + HALF) / TC) * TCN + Math.floor((n.x + HALF) / TC)); let a = nper.get(k); if (!a) nper.set(k, a = []); a.push(n); }
+  for (const [k, list] of nper) {
+    const [type, chs] = k.split(':'), ch = +chs, m = new THREE.InstancedMesh(nodeGeo[type], treeMat, list.length);
+    list.forEach((n, j) => { n.mesh = m; n.j = j; D.position.set(n.x, n.y - 0.03, n.z); D.rotation.set(0, n.rot, 0); D.scale.setScalar(n.s); D.updateMatrix(); m.setMatrixAt(j, D.matrix); n.mat = D.matrix.clone(); });
+    m.frustumCulled = false; m.castShadow = type === 'boulder' || type === 'iron' || type === 'sulfur' || type === 'bush'; m.receiveShadow = true; m.visible = false; m.matrixAutoUpdate = false; scene.add(m);
+    nodeChunks.push({ x: (ch % TCN) * TC - HALF + TC / 2, z: Math.floor(ch / TCN) * TC - HALF + TC / 2, m, big: type === 'boulder' || type === 'iron' || type === 'sulfur' });
+  }
   W.setNode = (n, alive, day) => { n.alive = alive; n.day = day || 0; if (alive) n.hp = NT[n.type].hp || 0; if (n.mesh) { n.mesh.setMatrixAt(n.j, alive ? n.mat : ZERO); n.mesh.instanceMatrix.needsUpdate = true; } if (n.col) n.col.off = !alive; };
 
   // ---- grass around the player
-  const GR = opts.grass, GS = 1.05, grassGeo = (() => { const a = []; for (let i = 0; i < 3; i++) { const g = new THREE.PlaneGeometry(0.5, 0.62, 1, 2); g.translate(0, 0.31, 0); const p = g.attributes.position; for (let k = 0; k < p.count; k++) { const y = p.getY(k); p.setX(k, p.getX(k) * (1 - y * 1.25)); } g.rotateY(i * 1.05); a.push(g); } const g = mergeGeometries(a); const p = g.attributes.position, col = new Float32Array(p.count * 3); for (let k = 0; k < p.count; k++) { const y = p.getY(k) / 0.62; col[k * 3] = 0.16 + y * 0.26; col[k * 3 + 1] = 0.28 + y * 0.34; col[k * 3 + 2] = 0.08 + y * 0.1; } g.setAttribute('color', new THREE.BufferAttribute(col, 3)); return g; })();
+  const GR = opts.grass, GS = 1.05, grassGeo = (() => { const a = []; for (let i = 0; i < 3; i++) { for (let b = 0; b < 3; b++) { const g = new THREE.PlaneGeometry(0.09, 0.62, 1, 2); g.translate(0, 0.31, 0); const p = g.attributes.position; for (let k = 0; k < p.count; k++) { const y = p.getY(k); p.setX(k, p.getX(k) * (1 - y * 1.4) + y * y * (b - 1) * 0.5); } g.translate((b - 1) * 0.16, 0, (b % 2) * 0.1); g.rotateY(i * 1.05 + b); a.push(g); } } const g = mergeGeometries(a); const p = g.attributes.position, col = new Float32Array(p.count * 3); for (let k = 0; k < p.count; k++) { const y = p.getY(k) / 0.62; col[k * 3] = 0.2 + y * 0.3; col[k * 3 + 1] = 0.34 + y * 0.36; col[k * 3 + 2] = 0.1 + y * 0.12; g.attributes.normal.setXYZ(k, 0, 1, 0); } g.setAttribute('color', new THREE.BufferAttribute(col, 3)); return g; })();
   const grassMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
   const gU = { t: { value: 0 } };
   grassMat.onBeforeCompile = (s) => { s.uniforms.uT = gU.t; s.vertexShader = 'uniform float uT;\n' + s.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = vec3(position);\n vec4 ip = instanceMatrix * vec4(0.,0.,0.,1.);\n float sw = sin(uT*1.7 + ip.x*0.35 + ip.z*0.27) * 0.5 + sin(uT*0.6 + ip.z*0.11);\n transformed.x += sw * 0.09 * position.y * position.y * 4.0;\n transformed.z += sw * 0.05 * position.y * position.y * 4.0;'); };
@@ -343,6 +350,7 @@ export function createWorld(scene, opts) {
     gU.t.value = time; regrass(px, pz);
     wn.offset.set(time * 0.004, time * 0.0027); wn2.offset.set(-time * 0.006, time * 0.004);
     for (const c of chunks) { const d = Math.hypot(c.x - px, c.z - pz), n = d < nearDist; if (c.near.visible !== n) { c.near.visible = n; c.far.visible = !n; } }
+    for (const c of nodeChunks) c.m.visible = Math.hypot(c.x - px, c.z - pz) < (c.big ? nearDist + 170 : nearDist + 20);
     for (let i = fallers.length - 1; i >= 0; i--) { const f = fallers[i]; f.t += dt; const a = Math.min(1.5, f.t * f.t * 0.9); f.m.rotation.set(Math.cos(f.dir) * a, 0, Math.sin(f.dir) * a); if (f.t > 1.9) { scene.remove(f.m); fallers.splice(i, 1); } }
   };
 

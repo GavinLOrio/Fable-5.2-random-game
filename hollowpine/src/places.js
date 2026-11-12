@@ -1,20 +1,20 @@
 // Hollowpine places: every hand-built location on the island.
 const PI = Math.PI;
-const CONC = 0x767873, WOOD = 0x6b5138, DARKWOOD = 0x4a3826, PLANK = 0x8a6d4a, RUST = 0x7a4a30, STEEL = 0x596068, ASPH = 0x2e2f31, BRICK = 0x7d4f40;
+const CONC = 0x767873, WOOD = 0x6b5138, DARKWOOD = 0x4a3826, PLANK = 0x8a6d4a, RUST = 0x7a4a30, STEEL = 0x596068, ASPH = 0x3d3e40, BRICK = 0x7d4f40;
 const WALLS = [0x8f897b, 0x9b8f7a, 0x7c6f5d, 0x86685a, 0x6f7a78, 0x9a9a8e, 0x7a8470], ROOFS = [0x4a3f3a, 0x5c382e, 0x3d4448, 0x4d4a3c];
 
 export const ROADS = [
   [[260, 745], [290, 560], [380, 300], [420, 205]],
   [[245, 60], [60, 40], [-180, -50], [-300, -170], [-330, -200]],
   [[-180, -50], [-300, 150], [-335, 250]],
-  [[-180, -50], [-480, -10], [-740, 50]],
+  [[-180, -50], [-480, -10], [-740, 50], [-825, 52]],
   [[605, 60], [700, 110], [760, 150]],
   [[420, -90], [400, -240], [350, -300], [480, -400], [600, -470]],
   [[60, 40], [80, -180]],
 ];
 
 export const POI_DEFS = [
-  { id: 'wreck', n: 'Wreck of the Marigold', kind: 'site', x: -770, z: 50, r: 26, build: wreck },
+  { id: 'wreck', n: 'Wreck of the Marigold', kind: 'site', x: -846, z: 50, r: 24, h: 2.0, zr: 44, zi: 18, build: wreck },
   { id: 'town', n: 'Ashby', kind: 'town', x: 420, z: 60, r: 205, zr: 310, zi: 200, h: 16, ground: [0.30, 0.29, 0.25], build: town },
   { id: 'harbor', n: 'Port Hallam', kind: 'harbor', x: 260, z: 770, r: 150, zr: 215, zi: 135, h: 2.6, ground: [0.40, 0.40, 0.39], build: harbor },
   { id: 'light', n: 'Gull Point Light', kind: 'site', x: 520, z: 640, r: 24, zr: 70, zi: 22, h: 7, build: lighthouse },

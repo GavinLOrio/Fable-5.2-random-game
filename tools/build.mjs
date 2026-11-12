@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 const sub = ['rome', 'hollowpine'].includes(args[0]) ? args[0] : null;
 const extra = sub ? args[1] : args[0];
 const entry = sub ? `${sub}/src/main.js` : 'src/main.js', pagePath = sub ? `${sub}/page.html` : 'src/page.html', outPath = sub ? `${sub}/index.html` : 'index.html';
-const out = await build({ entryPoints: [entry], bundle: true, minify: true, format: 'iife', target: 'es2020', write: false, legalComments: 'none' });
+const out = await build({ entryPoints: [entry], bundle: true, minify: !process.env.DEBUG, format: 'iife', target: 'es2020', write: false, legalComments: 'none' });
 const js = out.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const page = readFileSync(pagePath, 'utf8').replace('/*__BUNDLE__*/', () => js);
 const head = page.slice(0, page.indexOf('<canvas'));

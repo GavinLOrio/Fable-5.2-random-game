@@ -6,7 +6,7 @@ const gun = (era, dmg, rpm, auto, mag, reload, spread, recoil, ammo, o = {}) => 
 
 export const ITEMS = {
   // resources
-  log: { n: 'Log', cat: 'res', icon: 'log', tint: '#9a6b3f', max: 12, d: 'Felled timber. The backbone of every structure.' },
+  log: { n: 'Log', cat: 'res', icon: 'log', tint: '#9a6b3f', max: 24, d: 'Felled timber. The backbone of every structure.' },
   stick: { n: 'Stick', cat: 'res', icon: 'stick', tint: '#b08a55', d: 'Found on the forest floor or shaken from trees.' },
   stone: { n: 'Stone', cat: 'res', icon: 'stone', tint: '#9aa0a3', d: 'Loose rock. Mined faster with a pickaxe.' },
   fiber: { n: 'Plant Fiber', cat: 'res', icon: 'fiber', tint: '#8fb35a', d: 'Stripped from tall flax. Twists into rope and cloth.' },
