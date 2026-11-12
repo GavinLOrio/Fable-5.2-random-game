@@ -16,7 +16,7 @@ export function createMobs(scene, W, G) {
   M.clear = () => { for (const m of M.list.slice()) remove(m); for (const s of W.spawns) { s.alive = 0; } };
 
   M.damage = (m, dmg, head) => {
-    if (m.dead) return false; m.hp -= dmg * (head ? 2.2 : 1); m.alert = 12; if (m.def.passive) { m.state = 'flee'; m.t = 6; }
+    if (m.dead) return false; m.hp -= dmg * (head ? 2.2 : 1); m.alert = 12; m.flinch = 1; if (m.def.passive) { m.state = 'flee'; m.t = 6; }
     if (m.hp <= 0) { m.dead = 0.001; m.state = 'dead'; if (m.sp) { m.sp.alive--; if (m.sp.alive <= 0) m.sp.day = G.day(); } G.sfx(m.rig.human ? 'die' : 'yelp', m); return true; }
     // pack: nearby kin join in
     for (const o of M.list) if (o !== m && !o.dead && !o.def.passive && Math.hypot(o.x - m.x, o.z - m.z) < 30) o.alert = Math.max(o.alert, 10);
@@ -57,7 +57,7 @@ export function createMobs(scene, W, G) {
     const night = G.isNight(), px = P.x, pz = P.z, py = P.y;
     for (let i = M.list.length - 1; i >= 0; i--) {
       const m = M.list[i], rig = m.rig, dx = px - m.x, dz = pz - m.z, d = Math.hypot(dx, dz);
-      if (m.dead) { m.dead += dt; rig.g.rotation.z = Math.min(1.5, m.dead * 4); rig.g.position.y = m.y + Math.min(0.15, m.dead) * (rig.human ? 1 : 0.5); if (m.dead > 120 || (d > 220)) remove(m); continue; }
+      if (m.dead) { m.dead += dt; if (m.dead < 3) { rig.g.position.set(m.x, m.y, m.z); rig.pose(m, dt, G.time); } if (m.dead > 120 || (d > 220)) remove(m); continue; }
       if (d > 240) { if (m.sp) m.sp.alive--; remove(m); continue; }
       if (d > 130) { rig.g.visible = false; continue; } rig.g.visible = true;
       const def = m.def, sightK = (P.crouch ? 0.55 : 1) * (night && !P.lit ? 0.7 : 1) * (type(m) === 'wolf' && night ? 1.4 : 1) * G.sightK();
@@ -95,10 +95,7 @@ export function createMobs(scene, W, G) {
       if (m.y > m.ground + 0.02) { m.vy -= 22 * dt; m.y += m.vy * dt; if (m.y < m.ground) { m.y = m.ground; m.vy = 0; } } else { m.y = m.ground; m.vy = 0; }
       const wl = W.waterLevel(m.x, m.z); if (m.y < wl - rig.h * 0.6 && W.inWater(m.x, m.z)) m.y = wl - rig.h * 0.6;
       // pose
-      rig.g.position.set(m.x, m.y, m.z); rig.g.rotation.set(0, m.yaw, 0);
-      const sw = m.speed > 0.1 ? Math.sin(m.phase) * Math.min(0.9, 0.3 + m.speed * 0.09) : 0;
-      if (rig.human) { rig.legs[0].rotation.x = sw; rig.legs[1].rotation.x = -sw; if (!def.ranged) { rig.arms[0].rotation.x = -sw * 0.8; rig.arms[1].rotation.x = m.wind > 0 ? -2.4 + (0.3 - m.wind) * 7 : sw * 0.8 - 0.3; } else rig.arms[1].rotation.x = -1.35 - (m.wind > 0 ? 0.25 : 0); }
-      else { rig.legs[0].rotation.x = sw; rig.legs[1].rotation.x = -sw; rig.legs[2].rotation.x = -sw; rig.legs[3].rotation.x = sw; rig.head.rotation.x = m.wind > 0 ? -0.5 : (m.state === 'idle' && def.passive && m.t > 2 ? 0.7 : 0); }
+      rig.pose(m, dt, G.time + i, Math.atan2(py + 1.3 - (m.y + rig.h * 0.8), Math.max(1, d)));
       if (m.wind > 0) m.wind -= dt;
       if (!def.passive && m.alert > 0 && Math.random() < dt * 0.25 && d < 40) G.sfx(rig.human ? 'shout' : 'growl', m);
     }

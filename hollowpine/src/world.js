@@ -97,6 +97,7 @@ export function createWorld(scene, opts) {
   })();
   W.detail = detail;
   const terrMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: detail });
+  terrMat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n float mac = texture2D(map, vMapUv * 0.083).r; float mac2 = texture2D(map, vMapUv * 0.017 + 0.37).r;\n diffuseColor.rgb *= mix(0.72, 1.22, mac) * mix(0.82, 1.14, mac2);'); };
   const CH = 48, tmp = [0, 0, 0];
   for (let cj = 0; cj < G / CH; cj++) for (let ci = 0; ci < G / CH; ci++) {
     const n = CH + 1, pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), nor = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2), idx = [];
@@ -240,14 +241,14 @@ export function createWorld(scene, opts) {
     T.chunk.push(Math.floor((z + HALF) / TC) * TCN + Math.floor((x + HALF) / TC));
     const k = key(Math.floor(x / TH), Math.floor(z / TH)); let a = treeHash.get(k); if (!a) treeHash.set(k, a = []); a.push(i);
   }
-  const cone = (rad, h, y, sides, c1, c2) => { const g = new THREE.ConeGeometry(rad, h, sides, 1, true); g.translate(0, y + h / 2, 0); const p = g.attributes.position, col = new Float32Array(p.count * 3); C.set(c1); const D = new THREE.Color(c2); for (let i = 0; i < p.count; i++) { const k = (p.getY(i) - y) / h; col[i * 3] = lerp(C.r, D.r, k); col[i * 3 + 1] = lerp(C.g, D.g, k); col[i * 3 + 2] = lerp(C.b, D.b, k); } g.setAttribute('color', new THREE.BufferAttribute(col, 3)); return g; };
+  const cone = (rad, h, y, sides, c1, c2) => { const g = new THREE.ConeGeometry(rad, h, sides, 1, true); { const q = g.attributes.position; for (let i = 0; i < q.count; i++) if (q.getY(i) < 0) { const k = (i % 2) ? 0.62 : 1.08, dr = (i % 2) ? h * 0.2 : -h * 0.06; q.setXYZ(i, q.getX(i) * k, q.getY(i) + dr, q.getZ(i) * k); } g.computeVertexNormals(); } g.translate(0, y + h / 2, 0); const p = g.attributes.position, col = new Float32Array(p.count * 3); C.set(c1); const D = new THREE.Color(c2); for (let i = 0; i < p.count; i++) { const k = (p.getY(i) - y) / h; col[i * 3] = lerp(C.r, D.r, k); col[i * 3 + 1] = lerp(C.g, D.g, k); col[i * 3 + 2] = lerp(C.b, D.b, k); } g.setAttribute('color', new THREE.BufferAttribute(col, 3)); return g; };
   const trunk = (r0, r1, h, c, sides = 6) => { const g = new THREE.CylinderGeometry(r1, r0, h, sides, 1, true); g.translate(0, h / 2, 0); return paint(g, c, false); };
   const blob = (rad, x, y, z, c, det = 1) => { const g = new THREE.IcosahedronGeometry(rad, det); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const k = 1 + 0.16 * noise(p.getX(i) * 1.3 + x, p.getY(i) * 1.3 + z); p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.82, p.getZ(i) * k); } g.translate(x, y, z); g.computeVertexNormals(); return paint(g, c); };
   const merge = (a) => mergeGeometries(a.map((g) => { const n = g.index ? g.toNonIndexed() : g; n.deleteAttribute('uv'); return n; }), false);
-  const branch = (len, y, ry, rz) => { const g = new THREE.CylinderGeometry(0.03, 0.07, len, 4); g.translate(0, len / 2, 0); g.rotateZ(rz); g.rotateY(ry); g.translate(0, y, 0); return paint(g, 0x6f675c, false); };
+  const branch = (len, y, ry, rz) => { const g = new THREE.CylinderGeometry(0.03, 0.08, len, 5); g.translate(0, len / 2, 0); g.rotateZ(rz); g.rotateY(ry); g.translate(0, y, 0); return paint(g, 0x5f574c, false); };
   const nearGeo = [
-    merge([trunk(0.3, 0.1, 8.5, 0x4a3524), cone(2.5, 3.6, 2.4, 8, 0x16301a, 0x24451f), cone(2.0, 3.3, 4.6, 8, 0x18361c, 0x2a4d22), cone(1.45, 3.0, 6.7, 7, 0x1b3a1e, 0x305626), cone(0.85, 2.6, 8.7, 6, 0x1f4020, 0x3a6229)]),
-    merge([trunk(0.32, 0.16, 5, 0x5b4a3a), blob(2.3, 0, 6.2, 0, 0x33571f), blob(1.7, 1.5, 5.1, 0.6, 0x2c4d1c, 0), blob(1.6, -1.3, 5.3, -0.8, 0x3a6124, 0), blob(1.4, 0.2, 7.6, -0.4, 0x426b28, 0)]),
+    merge([trunk(0.3, 0.1, 8.5, 0x4a3524, 7), cone(2.6, 2.6, 2.2, 12, 0x10261a, 0x2a4a22), cone(2.3, 2.5, 3.6, 12, 0x12291b, 0x2d4f24), cone(1.95, 2.4, 5.0, 12, 0x142d1c, 0x305426), cone(1.55, 2.3, 6.4, 10, 0x16311d, 0x345a28), cone(1.15, 2.2, 7.7, 10, 0x18351e, 0x39602a), cone(0.75, 2.2, 8.9, 8, 0x1b3a1f, 0x40682c), cone(0.38, 1.7, 10.2, 6, 0x1f4020, 0x4a7430)]),
+    merge([trunk(0.34, 0.2, 4.6, 0x5b4a3a, 7), branch(2.6, 3.4, 0.6, 0.7), branch(2.4, 3.8, 2.8, -0.75), branch(2.2, 4.2, 4.6, 0.6), blob(2.2, 0, 6.3, 0, 0x33571f), blob(1.7, 1.7, 5.2, 0.7, 0x2c4d1c), blob(1.6, -1.5, 5.4, -0.9, 0x3a6124), blob(1.5, 0.3, 7.8, -0.4, 0x4a7a2c), blob(1.3, -0.6, 5.0, 1.6, 0x315420, 0), blob(1.2, 1.0, 6.9, -1.4, 0x426b28, 0)]),
     merge([trunk(0.26, 0.07, 7.5, 0x6f675c), branch(1.9, 3.6, 0.4, 0.9), branch(1.5, 4.6, 2.6, -1.0), branch(1.3, 5.4, 4.4, 0.8), branch(1.0, 6.2, 1.2, -0.7)]),
   ];
   const farGeo = [
@@ -256,6 +257,8 @@ export function createWorld(scene, opts) {
     merge([trunk(0.26, 0.07, 7.5, 0x6f675c, 4)]),
   ];
   const treeMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const tU = { t: { value: 0 }, w: { value: 1 } }; W.windU = tU;
+  treeMat.onBeforeCompile = (sh) => { sh.uniforms.uT = tU.t; sh.uniforms.uW = tU.w; sh.vertexShader = 'uniform float uT; uniform float uW;\n' + sh.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = vec3(position);\n#ifdef USE_INSTANCING\n vec4 ip = instanceMatrix * vec4(0.,0.,0.,1.);\n float k = smoothstep(1.5, 11.0, position.y) * uW;\n float ph = uT * 1.3 + ip.x * 0.11 + ip.z * 0.13;\n transformed.x += (sin(ph) * 0.16 + sin(ph * 2.7 + position.y) * 0.05) * k;\n transformed.z += (cos(ph * 0.8) * 0.12 + sin(ph * 3.1 + position.x * 2.0) * 0.04) * k;\n#endif'); };
   const chunks = W.treeChunks = [];
   const per = new Map();
   for (let i = 0; i < T.x.length; i++) { const k = T.chunk[i] * 3 + T.type[i]; let a = per.get(k); if (!a) per.set(k, a = []); a.push(i); }
@@ -338,16 +341,16 @@ export function createWorld(scene, opts) {
   // ---- water
   const wn = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 256; const c = cv.getContext('2d'), im = c.createImageData(256, 256); const hh = (x, y) => { const a = Math.PI * 2 / 256; return noise(Math.cos(x * a) * 3 + Math.cos(y * a) * 2, Math.sin(x * a) * 3 + Math.sin(y * a) * 2) + 0.5 * noise(Math.cos(x * a) * 7 + 3, Math.sin(y * a) * 7 + Math.sin(x * a) * 5); }; for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) { const dx = (hh(x + 1, y) - hh(x - 1, y)) * 6, dy = (hh(x, y + 1) - hh(x, y - 1)) * 6, k = (y * 256 + x) * 4; im.data[k] = 128 + dx * 127; im.data[k + 1] = 128 + dy * 127; im.data[k + 2] = 255; im.data[k + 3] = 255; } c.putImageData(im, 0, 0); const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })();
   const wn2 = wn.clone(); wn2.needsUpdate = true;
-  const seaMat = new THREE.MeshStandardMaterial({ color: 0x1d4a55, roughness: 0.12, metalness: 0.35, normalMap: wn, normalScale: new THREE.Vector2(0.55, 0.55), transparent: true, opacity: 0.86 });
+  const seaMat = new THREE.MeshStandardMaterial({ color: 0x1d4a55, roughness: 0.07, metalness: 0.85, normalMap: wn, normalScale: new THREE.Vector2(0.4, 0.4), transparent: true, opacity: 0.9, envMapIntensity: 6 });
   wn.repeat.set(380, 380);
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), seaMat); sea.rotation.x = -Math.PI / 2; sea.position.y = 0; sea.renderOrder = 1; scene.add(sea);
-  const lakeMat = seaMat.clone(); lakeMat.normalMap = wn2; wn2.repeat.set(9, 9); lakeMat.color.set(0x2a5a58);
+  const lakeMat = seaMat.clone(); lakeMat.normalMap = wn2; wn2.repeat.set(34, 34); lakeMat.normalScale = new THREE.Vector2(0.25, 0.25); lakeMat.color.set(0x2a5a58);
   const lake = new THREE.Mesh(new THREE.CircleGeometry(LAKE.r + 6, 40), lakeMat); lake.rotation.x = -Math.PI / 2; lake.position.set(LAKE.x, LAKE.y, LAKE.z); lake.renderOrder = 1; scene.add(lake);
   W.seaMat = seaMat; W.lakeMat = lakeMat;
 
   // ---- per-frame
   W.update = (dt, px, pz, time, nearDist) => {
-    gU.t.value = time; regrass(px, pz);
+    gU.t.value = time; tU.t.value = time; regrass(px, pz);
     wn.offset.set(time * 0.004, time * 0.0027); wn2.offset.set(-time * 0.006, time * 0.004);
     for (const c of chunks) { const d = Math.hypot(c.x - px, c.z - pz), n = d < nearDist; if (c.near.visible !== n) { c.near.visible = n; c.far.visible = !n; } }
     for (const c of nodeChunks) c.m.visible = Math.hypot(c.x - px, c.z - pz) < (c.big ? nearDist + 170 : nearDist + 20);

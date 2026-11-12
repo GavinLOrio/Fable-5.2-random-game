@@ -60,7 +60,7 @@ export function createBuild(scene, W) {
   const solidMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   const ghostMat = new THREE.MeshBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.3, depthWrite: false });
   const badMat = new THREE.MeshBasicMaterial({ color: 0xff5040, transparent: true, opacity: 0.35, depthWrite: false });
-  const flameMat = new THREE.MeshBasicMaterial({ color: 0xffa030 });
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xffa030 }); flameMat.color.setRGB(7, 2.6, 0.5);
   const geoCache = {};
   const partsOf = (type) => { if (!geoCache[type]) { li = 0; geoCache[type] = MODELS[type](); } return geoCache[type]; };
   const mergedCache = {};
