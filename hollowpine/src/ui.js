@@ -63,20 +63,22 @@ export function createUI(G) {
 
   const R = {
     pack() {
-      const ids = Object.keys(G.inv).filter((k) => G.inv[k] > 0);
-      let grid = '';
-      for (const [cat, name] of CATS) { const list = ids.filter((k) => ITEMS[k].cat === cat); if (!list.length) continue; grid += `<div class="sec"><h3>${name}</h3></div><div class="grid">${list.map((k) => { const hk = G.hot.indexOf(k); return `<button class="tile${U.selItem === k ? ' sel' : ''}" data-item="${k}" title="${esc(ITEMS[k].n)}">${icon(k)}${hk >= 0 ? `<span class="hk">${hk + 1}</span>` : ''}${ITEMS[k].max > 1 ? `<span class="q num">${G.inv[k]}</span>` : ''}${G.armor === k ? '<span class="hk">Worn</span>' : ''}</button>`; }).join('')}</div>`; }
-      if (!grid) grid = '<p class="label">Your pack is empty. Pick up sticks and stones, then open Craft.</p>';
+      G.syncSlots(); const S = G.slots, n = Math.max(30, Math.ceil(S.length / 6) * 6);
+      const slot = (id, drop, from, key) => { const it = id && ITEMS[id]; return `<div class="islot${it ? ' has' : ''}${id && U.selItem === id ? ' sel' : ''}" data-drop="${drop}"${it ? ` data-drag="${id}" data-from="${from}" title="${esc(it.n)}"` : ''}>${key ? `<span class="k">${key}</span>` : ''}${it ? icon(id) + (it.max > 1 ? `<span class="q num">×${G.count(id)}</span>` : '') + (G.armor === id && from[0] === 'g' ? '<span class="w">Worn</span>' : '') : ''}</div>`; };
+      let grid = ''; for (let i = 0; i < n; i++) grid += slot(S[i] && G.count(S[i]) ? S[i] : null, 'g:' + i, 'g:' + i);
+      let belt = ''; G.hot.forEach((id, i) => { belt += slot(id && G.count(id) ? id : null, 'b:' + i, 'b:' + i, i + 1); });
+      const p = G.P, bar = (l, v, c) => `<div class="ivit"><span>${l}</span><i><b style="width:${Math.round(v)}%;background:${c}"></b></i><em class="num">${Math.round(v)}</em></div>`;
       const k = U.selItem && G.inv[U.selItem] > 0 ? U.selItem : null, it = k && ITEMS[k];
-      let d = '<div class="detail"><span class="label">Select an item</span><p>Tools, weapons, food and seeds can be put on the hotbar (keys 1 to 8).</p></div>';
+      let d = '<div class="idetail"><span class="label">Nothing selected</span><p>Click an item to inspect it. Drag items onto the belt (keys 1 to 8) or the clothing slot. Right-click uses, wears or belts an item.</p></div>';
       if (it) {
         const usable = it.food || it.water || it.hp, w = it.w;
-        d = `<div class="detail"><span class="label">${esc(CATS.find((c) => c[0] === it.cat)[1])}${w && w.era ? ' · ' + w.era : ''}</span><h3>${esc(it.n)}</h3><p>${esc(it.d)}</p>
+        d = `<div class="idetail"><div class="ihead">${icon(k)}<div><span class="label">${esc(CATS.find((c) => c[0] === it.cat)[1])}${w && w.era ? ' · ' + w.era : ''}</span><h3>${esc(it.n)}</h3></div></div><p>${esc(it.d)}</p>
         ${w ? `<p class="num">${w.kind === 'gun' ? `Damage ${w.dmg}${w.pellets > 1 ? '×' + w.pellets : ''} · ${w.rpm} rpm · ${w.mag} rounds · ${ITEMS[w.ammo].n}` : w.kind === 'bow' ? `Damage ${w.dmg} · ${ITEMS[w.ammo].n}` : `Damage ${w.dmg} · reach ${w.range} m${w.tree >= 1 ? ' · fells trees' : ''}${w.ore >= 1 ? ' · mines rock' : ''}`}</p>` : ''}
-        <div class="row">${usable ? `<button class="btn" data-use="${k}">${it.food ? 'Eat' : it.water ? 'Drink' : 'Use'}</button>` : ''}${it.armor ? `<button class="btn" data-wear="${k}">${G.armor === k ? 'Take off' : 'Wear'}</button>` : ''}<button class="btn ghost" data-drop="${k}">Discard</button></div>
-        ${it.cat !== 'res' && it.cat !== 'armor' && it.cat !== 'ammo' ? `<span class="label">Put on hotbar</span><div class="row">${G.hot.map((h, i) => `<button class="btn sm ${h === k ? '' : 'ghost'}" data-hot="${i}">${i + 1}</button>`).join('')}</div>` : ''}</div>`;
+        <div class="row">${usable ? `<button class="btn" data-use="${k}">${it.food ? 'Eat' : it.water ? 'Drink' : 'Use'}</button>` : ''}${it.armor ? `<button class="btn" data-wear="${k}">${G.armor === k ? 'Take off' : 'Wear'}</button>` : ''}<button class="btn ghost" data-drop-item="${k}">Discard</button></div>
+        ${it.cat !== 'res' && it.cat !== 'armor' && it.cat !== 'ammo' ? `<span class="label">Belt slot</span><div class="row">${G.hot.map((h, i) => `<button class="btn sm ${h === k ? '' : 'ghost'}" data-hot="${i}">${i + 1}</button>`).join('')}</div>` : ''}</div>`;
       }
-      return `<div class="cols"><div>${grid}</div>${d}</div>`;
+      return `<div class="inv"><div class="invL"><span class="ilbl">Clothing</span>${slot(G.armor && G.count(G.armor) ? G.armor : null, 'armor', 'armor')}<span class="ihint">${G.armor ? Math.round(ITEMS[G.armor].armor * 100) + '% protection' : 'No armor'}</span><span class="ilbl">Vitals</span>${bar('Health', p.hp, 'var(--blood)')}${bar('Food', p.food, 'var(--amber)')}${bar('Water', p.water, 'var(--water)')}</div>
+      <div class="invC"><span class="ilbl">Inventory</span><div class="igrid">${grid}</div><span class="ilbl">Belt</span><div class="ibelt">${belt}</div></div><div class="invR">${d}</div></div>`;
     },
     craft() {
       const lvl = G.tableLevel(); let h = '';
@@ -90,7 +92,7 @@ export function createUI(G) {
     },
     build() {
       let h = '<p class="label">Pick a blueprint, place its ghost, then carry materials to it and hold E. R or the wheel turns it. Hold X on any structure to take it down.</p>';
-      for (const cat of ['Camp', 'Farming', 'Building', 'Defense', 'Research']) { h += `<div class="sec"><h3>${cat}</h3></div><div class="cards">`; for (const s of STRUCTS.filter((q) => q.cat === cat)) { const locked = s.tech && !G.tech.has(s.tech); h += `<button class="card" data-build="${s.id}" ${locked ? 'disabled' : ''}><b>${esc(s.n)}</b>${locked ? '<span class="tag">Needs research</span>' : ''}<p>${esc(s.d)}</p>${costHtml(s.cost)}</button>`; } h += '</div>'; }
+      for (const cat of ['Camp', 'Farming', 'Building', 'Defense', 'Research']) { h += `<div class="sec"><h3>${cat}</h3></div><div class="cards bcards">`; for (const s of STRUCTS.filter((q) => q.cat === cat)) { const locked = s.tech && !G.tech.has(s.tech); h += `<button class="card bcard" data-build="${s.id}" ${locked ? 'disabled' : ''}><img src="${G.thumb(s.id)}" alt="" width="112" height="84"><span class="bc"><b>${esc(s.n)}</b>${locked ? '<span class="tag">Needs research</span>' : ''}<p>${esc(s.d)}</p>${costHtml(s.cost)}</span></button>`; } h += '</div>'; }
       return h;
     },
     research() {
@@ -121,7 +123,7 @@ export function createUI(G) {
   };
   body.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b || b.disabled) return; const d = b.dataset;
-    if (d.item) U.selItem = d.item; else if (d.use) G.useItem(d.use); else if (d.wear) G.wear(d.wear); else if (d.drop) { G.take(d.drop, G.count(d.drop)); U.selItem = null; }
+    if (d.item) U.selItem = d.item; else if (d.use) G.useItem(d.use); else if (d.wear) G.wear(d.wear); else if (d.dropItem) { G.take(d.dropItem, G.count(d.dropItem)); U.selItem = null; }
     else if (d.hot) G.assign(+d.hot, U.selItem); else if (d.craft) G.craft(RECIPES[+d.craft], e.shiftKey ? 5 : 1); else if (d.build) { G.startBuild(d.build); return; }
     else if (d.tech) G.research(d.tech); else if (d.move) G.chestMove(d.move, d.to === '1');
     else if (d.set) G.setSetting(d.set, +d.v);
@@ -129,6 +131,26 @@ export function createUI(G) {
     if (!d.sys || d.sys !== 'new') if (!d.sys) U.confirmNew = false;
     U.render();
   });
+  // inventory drag and drop (mouse and touch)
+  let drag = null;
+  const quick = (id) => { const it = ITEMS[id]; if (it.food || it.water || it.hp) G.useItem(id); else if (it.armor) G.wear(id); else if (it.cat !== 'res' && it.cat !== 'ammo' && !G.hot.includes(id)) { const i = G.hot.findIndex((h) => !h || !G.count(h)); if (i >= 0) G.assign(i, id); } };
+  body.addEventListener('pointerdown', (e) => { const el = e.target.closest('[data-drag]'); if (!el || e.button === 2) return; drag = { id: el.dataset.drag, from: el.dataset.from, x: e.clientX, y: e.clientY, ghost: null }; });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag) return; if (!drag.ghost && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 7) { const g = document.createElement('div'); g.className = 'idrag'; g.innerHTML = icon(drag.id); document.body.appendChild(g); drag.ghost = g; }
+    if (drag.ghost) { drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px'; }
+  });
+  window.addEventListener('pointerup', (e) => {
+    if (!drag) return; const d = drag; drag = null; if (!d.ghost) { U.selItem = d.id; G.sfx('ui'); U.render(); return; }
+    d.ghost.remove(); const el = document.elementFromPoint(e.clientX, e.clientY), t = el && el.closest('[data-drop]'); if (!t || !U.open) return;
+    const to = t.dataset.drop, [fk, fi] = d.from.split(':'), [tk, ti] = to.split(':'), it = ITEMS[d.id];
+    if (tk === 'armor') { if (it.armor) G.armor = d.id; }
+    else if (tk === 'b') { if (it.cat === 'res' || it.cat === 'ammo' || it.cat === 'armor') { U.toast('That cannot go on the belt', 'bad'); } else if (fk === 'b') { const a = G.hot[+ti]; G.hot[+ti] = d.id; G.hot[+fi] = a; } else G.assign(+ti, d.id); }
+    else if (tk === 'g') { if (fk === 'b') G.hot[+fi] = null; else if (fk === 'armor') G.armor = null; else { const S = G.slots; while (S.length <= Math.max(+ti, +fi)) S.push(null); const a = S[+ti]; S[+ti] = S[+fi]; S[+fi] = a; } }
+    G.sfx('pickup'); U.selItem = d.id; U.render();
+  });
+  window.addEventListener('pointercancel', () => { if (drag && drag.ghost) drag.ghost.remove(); drag = null; });
+  body.addEventListener('contextmenu', (e) => { const el = e.target.closest('[data-drag]'); if (!el) return; e.preventDefault(); quick(el.dataset.drag); U.selItem = el.dataset.drag; U.render(); });
+  body.addEventListener('dblclick', (e) => { const el = e.target.closest('[data-drag]'); if (el) { quick(el.dataset.drag); U.render(); } });
   body.addEventListener('input', (e) => { if (e.target.id === 'setSens') G.setSetting('sens', +e.target.value); if (e.target.id === 'setVol') G.setSetting('vol', +e.target.value); });
 
   // ---- map

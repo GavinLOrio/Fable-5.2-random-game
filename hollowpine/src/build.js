@@ -173,6 +173,22 @@ export function createBuild(scene, W) {
     ghost.position.set(x, y, z); ghost.rotation.y = yaw; ghost.children[0].material = ok ? ghostMat : badMat; Bd.valid = ok; Bd.gx = x; Bd.gy = y; Bd.gz = z; Bd.gyaw = yaw;
   };
   Bd.confirm = () => (Bd.valid ? Bd.place(Bd.placing, Bd.gx, Bd.gy, Bd.gz, Bd.gyaw) : null);
+  // small rendered pictures of each structure for the building book
+  const thumbs = {}; let tScene = null, tCam, tRT, tCv;
+  Bd.thumb = (renderer, type) => {
+    if (thumbs[type]) return thumbs[type];
+    const TW = 224, TH = 168;
+    if (!tScene) { tScene = new THREE.Scene(); tScene.add(new THREE.HemisphereLight(0xffffff, 0x554a3a, 2.2)); const d = new THREE.DirectionalLight(0xfff2dd, 2.6); d.position.set(3, 5, 4); tScene.add(d); tCam = new THREE.PerspectiveCamera(30, TW / TH, 0.1, 100); tRT = new THREE.WebGLRenderTarget(TW, TH); tCv = document.createElement('canvas'); tCv.width = TW; tCv.height = TH; }
+    const geo = mergedOf(type), m = new THREE.Mesh(geo, solidMat); geo.computeBoundingBox(); const bb = geo.boundingBox, c = bb.getCenter(new THREE.Vector3()); if (bb.min.y < -1) { c.y = (Math.max(bb.min.y, -1.2) + bb.max.y) / 2; }
+    const rad = Math.max(1.0, Math.min(bb.getSize(new THREE.Vector3()).length() / 2, 5)); tScene.add(m);
+    const dir = new THREE.Vector3(0.75, 0.5, 1).normalize(); tCam.position.copy(c).addScaledVector(dir, rad / Math.sin(15 * Math.PI / 180) * 0.82); tCam.lookAt(c);
+    const prev = renderer.getRenderTarget(), pc = new THREE.Color(); renderer.getClearColor(pc); const pa = renderer.getClearAlpha();
+    renderer.setRenderTarget(tRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(tScene, tCam);
+    const px = new Uint8Array(TW * TH * 4); renderer.readRenderTargetPixels(tRT, 0, 0, TW, TH, px); renderer.setRenderTarget(prev); renderer.setClearColor(pc, pa); tScene.remove(m);
+    const ctx = tCv.getContext('2d'), im = ctx.createImageData(TW, TH);
+    for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { const s = ((TH - 1 - y) * TW + x) * 4, d = (y * TW + x) * 4; for (let k = 0; k < 3; k++) im.data[d + k] = Math.pow(Math.min(1, px[s + k] / 255), 1 / 2.2) * 255; im.data[d + 3] = px[s + 3]; }
+    ctx.putImageData(im, 0, 0); return thumbs[type] = tCv.toDataURL('image/png');
+  };
   Bd.update = (t) => { for (const s of Bd.structs) if (s.flame) { const k = 0.85 + Math.sin(t * 13 + s.x) * 0.12 + Math.sin(t * 7.3) * 0.1; s.flame.scale.set(k, 0.8 + k * 0.4, k); } };
   Bd.save = () => Bd.structs.map((s) => [s.type, +s.x.toFixed(2), +s.y.toFixed(2), +s.z.toFixed(2), +s.yaw.toFixed(3), s.done ? 1 : 0, s.prog, Math.round(s.hp), s.open ? 1 : 0, s.inv, s.crop ? [s.crop.id, +s.crop.g.toFixed(3), +s.crop.wet.toFixed(2)] : 0, s.water]);
   Bd.load = (arr) => { for (const s of Bd.structs.slice()) Bd.remove(s); for (const a of arr || []) if (STRUCT_BY_ID[a[0]]) Bd.place(a[0], a[1], a[2], a[3], a[4], { done: !!a[5], prog: a[6] || {}, hp: a[7], open: !!a[8], inv: a[9], crop: a[10] ? { id: a[10][0], g: a[10][1], wet: a[10][2] } : null, water: a[11] }); };

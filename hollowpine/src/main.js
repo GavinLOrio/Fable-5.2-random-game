@@ -97,6 +97,9 @@ G.take = (id, n = 1) => { const c = G.count(id); if (c < n) return false; G.inv[
 G.select = (i) => { if (G.sel !== i) { G.sel = i; reloadT = 0; drawT = 0; swingT = 0; G.sfx('ui'); } };
 G.assign = (slot, id) => { const old = G.hot.indexOf(id); if (old >= 0) G.hot[old] = G.hot[slot]; G.hot[slot] = id; };
 G.wear = (id) => { G.armor = G.armor === id ? null : id; G.sfx('craft'); };
+G.slots = [];
+G.syncSlots = () => { const S = G.slots; for (let i = 0; i < S.length; i++) if (S[i] && !G.count(S[i])) S[i] = null; for (const k in G.inv) if (G.inv[k] > 0 && !S.includes(k)) { const i = S.indexOf(null); if (i >= 0) S[i] = k; else S.push(k); } while (S.length > 30 && S[S.length - 1] == null) S.pop(); };
+G.thumb = (id) => Bd.thumb(renderer, id);
 G.homes = () => Bd.structs.filter((s) => s.done && (s.type === 'leanto' || s.type.startsWith('research')));
 let dirty = false;
 
@@ -144,7 +147,7 @@ const cloudReady = (async () => {
 })();
 function snapshot() {
   const T = W.trees, felled = []; for (let i = 0; i < T.alive.length; i++) if (!T.alive[i]) felled.push(i);
-  return { v: 1, t: Date.now(), time: Math.round(G.time), P: { x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), yaw: +P.yaw.toFixed(3), hp: Math.round(P.hp), food: Math.round(P.food), water: Math.round(P.water) }, inv: G.inv, hot: G.hot, sel: G.sel, mags: G.mags, armor: G.armor, tech: [...G.tech], structs: Bd.save(), felled, nodes: W.nodes.filter((n) => !n.alive).map((n) => [n.id, +n.day.toFixed(2)]), cont: W.containers.filter((c) => c.day > -50 && c.id != null).map((c) => [c.id, +c.day.toFixed(2)]), pois: W.pois.filter((p) => p.found).map((p) => p.id), weather, spawn: G.spawn, pack: G.pack };
+  return { v: 1, t: Date.now(), time: Math.round(G.time), P: { x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), yaw: +P.yaw.toFixed(3), hp: Math.round(P.hp), food: Math.round(P.food), water: Math.round(P.water) }, inv: G.inv, hot: G.hot, sel: G.sel, mags: G.mags, armor: G.armor, tech: [...G.tech], structs: Bd.save(), felled, nodes: W.nodes.filter((n) => !n.alive).map((n) => [n.id, +n.day.toFixed(2)]), cont: W.containers.filter((c) => c.day > -50 && c.id != null).map((c) => [c.id, +c.day.toFixed(2)]), pois: W.pois.filter((p) => p.found).map((p) => p.id), weather, spawn: G.spawn, pack: G.pack, slots: G.slots };
 }
 function saveNow(cloud) {
   if (!started || noSave || P.dead) return; const s = snapshot(), json = JSON.stringify(s); try { localStorage.setItem(SAVE_KEY, json); } catch (e) { /* ignore */ } lastSaveAt = performance.now(); dirty = false;
@@ -158,7 +161,7 @@ function applySave(s) {
   G.hot = (s.hot || []).map((h) => (ITEMS[h] ? h : null)); while (G.hot.length < 8) G.hot.push(null); G.sel = s.sel || 0; G.mags = s.mags || {}; G.armor = s.armor || null; G.tech = new Set(s.tech || []);
   Bd.load(s.structs); for (const i of s.felled || []) W.fellTree(i, true); for (const [id, day] of s.nodes || []) if (W.nodes[id]) W.setNode(W.nodes[id], false, day);
   for (const [id, day] of s.cont || []) if (W.containers[id]) W.containers[id].day = day; for (const id of s.pois || []) { const p = W.pois.find((q) => q.id === id); if (p) p.found = true; }
-  if (s.weather && WEATHER[s.weather.id]) weather = s.weather; G.spawn = s.spawn || null; G.pack = s.pack || null; if (G.pack) placePack();
+  if (s.weather && WEATHER[s.weather.id]) weather = s.weather; G.slots = (s.slots || []).map((k) => (ITEMS[k] ? k : null)); G.spawn = s.spawn || null; G.pack = s.pack || null; if (G.pack) placePack();
 }
 
 // ---------------------------------------------------------------- effects
@@ -516,7 +519,7 @@ function frame(now) {
       placePrev = input.fire;
     } else placePrev = input.fire;
     // interaction
-    targetT -= dt; if (targetT <= 0) { targetT = 0.1; target = Bd.placing ? null : findTarget(); U.prompt(promptFor(target)); }
+    targetT -= dt; if (targetT <= 0) { targetT = 0.1; target = Bd.placing ? null : findTarget(); U.prompt(!input.touch && !input.locked && !input.dragLook ? '<kbd>CLICK</kbd>Click the game to capture the mouse' : promptFor(target)); }
     useT -= dt; if (input.hit('use')) useTarget(target, true); else if (input.use && target && target.kind === 'struct' && !target.s.done) useTarget(target, false);
     if (input.hit('dismantle')) dismT = 0.001; if (dismT > 0 && target && target.kind === 'struct') { dismT += dt; if (dismT > 0.7) { const s = target.s; for (const k in s.def.cost) { const n = s.done ? Math.floor(s.def.cost[k] * 0.5) : s.prog[k] || 0; if (n) G.give(k, n); } if (s.inv) giveAll(s.inv); Bd.remove(s); G.sfx('thud'); dismT = 0; target = null; dirty = true; } } else dismT = 0;
     if (dismT > 0 && !inputHeldX()) dismT = 0;
