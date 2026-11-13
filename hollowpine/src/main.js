@@ -12,7 +12,8 @@ import { createBuild } from './build.js';
 import { createMobs, rollLoot } from './entities.js';
 import { createAudio } from './audio.js';
 import { createInput } from './input.js';
-import { createUI } from './ui.js';
+import { createUI, setIconSource } from './ui.js';
+import { createItemArt } from './items.js';
 import { viewModel } from './models.js';
 
 const $ = (id) => document.getElementById(id);
@@ -79,7 +80,7 @@ window.addEventListener('resize', resize); resize();
 // ---------------------------------------------------------------- state
 const P = { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, hp: 100, food: 100, water: 100, stam: 100, crouch: false, dead: false, lit: false, moving: false, ground: true, swim: false, stamWait: 0, vx: 0, vz: 0 };
 const G = { P, inv: {}, hot: Array(8).fill(null), sel: 0, mags: {}, armor: null, tech: new Set(), time: 0, chest: null, settings, spawn: null, pack: null };
-let W, Bd, M, U, started = false, lastSaveAt = 0, weather = { id: 'clear', t: 240 }, wx = { rain: 0, fog: 1, light: 1, sight: 1, cloud: 0 };
+let W, Bd, M, U, art = null, started = false, lastSaveAt = 0, weather = { id: 'clear', t: 240 }, wx = { rain: 0, fog: 1, light: 1, sight: 1, cloud: 0 };
 const audio = createAudio(), input = createInput(canvas);
 input.onFirst = () => audio.init();
 G.sfx = (name, at) => audio.play(name, at ? Math.hypot(at.x - P.x, at.z - P.z) : 0);
@@ -147,7 +148,7 @@ const cloudReady = (async () => {
 })();
 function snapshot() {
   const T = W.trees, felled = []; for (let i = 0; i < T.alive.length; i++) if (!T.alive[i]) felled.push(i);
-  return { v: 1, t: Date.now(), time: Math.round(G.time), P: { x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), yaw: +P.yaw.toFixed(3), hp: Math.round(P.hp), food: Math.round(P.food), water: Math.round(P.water) }, inv: G.inv, hot: G.hot, sel: G.sel, mags: G.mags, armor: G.armor, tech: [...G.tech], structs: Bd.save(), felled, nodes: W.nodes.filter((n) => !n.alive).map((n) => [n.id, +n.day.toFixed(2)]), cont: W.containers.filter((c) => c.day > -50 && c.id != null).map((c) => [c.id, +c.day.toFixed(2)]), pois: W.pois.filter((p) => p.found).map((p) => p.id), weather, spawn: G.spawn, pack: G.pack, slots: G.slots };
+  return { v: 1, t: Date.now(), time: Math.round(G.time), P: { x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), yaw: +P.yaw.toFixed(3), hp: Math.round(P.hp), food: Math.round(P.food), water: Math.round(P.water) }, inv: G.inv, hot: G.hot, sel: G.sel, mags: G.mags, armor: G.armor, tech: [...G.tech], structs: Bd.save(), felled, nodes: W.nodes.filter((n) => !n.alive).map((n) => [n.id, +n.day.toFixed(2)]), cont: W.containers.filter((c) => c.day > -50 && c.id != null).map((c) => [c.id, +c.day.toFixed(2)]), pois: W.pois.filter((p) => p.found).map((p) => p.id), weather, spawn: G.spawn, pack: G.pack, slots: G.slots, drops: drops.map((d) => [d.id, d.n, +d.x.toFixed(2), +d.y.toFixed(2), +d.z.toFixed(2), +d.yaw.toFixed(2)]) };
 }
 function saveNow(cloud) {
   if (!started || noSave || P.dead) return; const s = snapshot(), json = JSON.stringify(s); try { localStorage.setItem(SAVE_KEY, json); } catch (e) { /* ignore */ } lastSaveAt = performance.now(); dirty = false;
@@ -161,7 +162,7 @@ function applySave(s) {
   G.hot = (s.hot || []).map((h) => (ITEMS[h] ? h : null)); while (G.hot.length < 8) G.hot.push(null); G.sel = s.sel || 0; G.mags = s.mags || {}; G.armor = s.armor || null; G.tech = new Set(s.tech || []);
   Bd.load(s.structs); for (const i of s.felled || []) W.fellTree(i, true); for (const [id, day] of s.nodes || []) if (W.nodes[id]) W.setNode(W.nodes[id], false, day);
   for (const [id, day] of s.cont || []) if (W.containers[id]) W.containers[id].day = day; for (const id of s.pois || []) { const p = W.pois.find((q) => q.id === id); if (p) p.found = true; }
-  if (s.weather && WEATHER[s.weather.id]) weather = s.weather; G.slots = (s.slots || []).map((k) => (ITEMS[k] ? k : null)); G.spawn = s.spawn || null; G.pack = s.pack || null; if (G.pack) placePack();
+  if (s.weather && WEATHER[s.weather.id]) weather = s.weather; G.slots = (s.slots || []).map((k) => (ITEMS[k] ? k : null)); for (const d of drops.slice()) removeDrop(d); for (const [id, n, x, y, z, yaw] of s.drops || []) if (ITEMS[id] && n > 0) addDrop(id, n, x, y, z, yaw); G.spawn = s.spawn || null; G.pack = s.pack || null; if (G.pack) placePack();
 }
 
 // ---------------------------------------------------------------- effects
@@ -189,6 +190,20 @@ function rainUpdate(dt, snow) {
   const sp = snow ? 2.6 : 26, len = snow ? 0.05 : 0.7, wind = snow ? 1.2 : 3; rainMat.opacity = snow ? 0.9 : 0.42;
   for (let i = 0; i < n; i++) { let y = rSeed[i * 3 + 1] - sp * dt; if (y < -2) y += 26; rSeed[i * 3 + 1] = y; let x = rSeed[i * 3] + wind * dt; if (x > 20) x -= 40; rSeed[i * 3] = x; const wxp = P.x + x, wz = P.z + rSeed[i * 3 + 2], wy = P.y + y; rPos[i * 6] = wxp; rPos[i * 6 + 1] = wy; rPos[i * 6 + 2] = wz; rPos[i * 6 + 3] = wxp + wind * len / sp * 4; rPos[i * 6 + 4] = wy + len; rPos[i * 6 + 5] = wz; }
   rGeo.attributes.position.needsUpdate = true;
+}
+// fireflies on dry nights in the forest; they stay put in the world while the player moves through them
+const FN = 80, fPos = new Float32Array(FN * 3), fCol = new Float32Array(FN * 3), fSeed = [...Array(FN)].map(() => [rnd(-24, 24), rnd(0.4, 2.4), rnd(-24, 24), rnd(0, 6.28), rnd(0.5, 1.4)]);
+const fGeo = new THREE.BufferGeometry(); fGeo.setAttribute('position', new THREE.BufferAttribute(fPos, 3)); fGeo.setAttribute('color', new THREE.BufferAttribute(fCol, 3));
+const glowTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 32; const c = cv.getContext('2d'), gr = c.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(cv); })();
+const fMat = new THREE.PointsMaterial({ size: 0.26, map: glowTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+const flies = new THREE.Points(fGeo, fMat); flies.frustumCulled = false; flies.visible = false; scene.add(flies);
+let fA = 0;
+const wrap48 = (v) => ((v % 48) + 72) % 48 - 24;
+function fliesUpdate(dt, t) {
+  const want = G.isNight() && wx.rain < 0.2 && P.y < 100 && zone === 'Hollowpine forest' ? 1 : 0; fA += (want - fA) * Math.min(1, dt * 0.4); flies.visible = fA > 0.02; if (!flies.visible) return;
+  for (let i = 0; i < FN; i++) { const s = fSeed[i], x = P.x + wrap48(s[0] + Math.sin(t * 0.21 * s[4] + s[3]) * 2 - P.x), z = P.z + wrap48(s[2] + Math.cos(t * 0.17 * s[4] + s[3]) * 2 - P.z), k = Math.pow(Math.max(0, Math.sin(t * 1.3 * s[4] + s[3] * 3)), 3) * fA;
+    fPos[i * 3] = x; fPos[i * 3 + 1] = W.H(x, z) + s[1] + Math.sin(t * s[4] + s[3]) * 0.3; fPos[i * 3 + 2] = z; fCol[i * 3] = 2.4 * k; fCol[i * 3 + 1] = 3.2 * k; fCol[i * 3 + 2] = 0.7 * k; }
+  fGeo.attributes.position.needsUpdate = true; fGeo.attributes.color.needsUpdate = true;
 }
 // arrows in flight
 const arrows = [], arrowGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.8, 5).rotateX(Math.PI / 2), arrowMat = new THREE.MeshLambertMaterial({ color: 0xc9b17a });
@@ -243,8 +258,8 @@ function meleeHit(id, w) {
   let node = kind === 'solid' && ref.node && ref.node.alive ? ref.node : null;
   if (!node) { W.nodesNear(o.x + d.x * 1.6, o.z + d.z * 1.6, 2.6, nearNodes); let bd = 2.4; for (const n of nearNodes) { const t = W.NODE_TYPES[n.type]; if (!n.alive || !t.mine) continue; const dd = Math.hypot(n.x - o.x - d.x * 1.4, n.z - o.z - d.z * 1.4); if (dd < bd) { bd = dd; node = n; } } }
   if (node) {
-    const t = W.NODE_TYPES[node.type], pw = t.any ? Math.max(w.ore, w.tree, 0.5) : w.ore; if (!pw) { U.toast('You need a pickaxe for this', 'bad'); G.sfx('thud'); return; }
-    node.hp -= 22 * pw; G.sfx('mine'); burst(hx, hy, hz, t.any ? 0xc98a3c : 0xa0a0a0, 7, 3, 9, 0.5); for (const k in t.mine) { const n = ri(t.mine[k][0], t.mine[k][1]); if (n) G.give(k, n); }
+    const t = W.NODE_TYPES[node.type], pw = t.any ? Math.max(w.ore, w.tree, 0.5) : t.chop ? w.tree : w.ore; if (!pw) { U.toast(t.chop ? 'You need an axe to chop this' : 'You need a pickaxe for this', 'bad'); G.sfx('thud'); return; }
+    node.hp -= 22 * pw; G.sfx(t.chop ? 'chop' : 'mine'); burst(hx, hy, hz, t.chop ? 0xc9a26a : t.any ? 0xc98a3c : 0xa0a0a0, 7, 3, 9, 0.5); for (const k in t.mine) { const n = ri(t.mine[k][0], t.mine[k][1]); if (n) G.give(k, n); }
     if (node.hp <= 0) { W.setNode(node, false, G.dayFloat()); burst(node.x, node.y + 0.5, node.z, 0x8a8a8a, 18, 4, 9, 0.8); }
     return;
   }
@@ -334,7 +349,7 @@ G.enemyShot = (m, hit) => {
 };
 G.hitStruct = (s, dmg, m) => { G.sfx('thud', m); burst(s.x, s.y + 1, s.z, 0x8a6a45, 5, 2, 9, 0.4); if (Bd.damage(s, dmg)) U.toast(`${s.def.n} destroyed`, 'bad'); dirty = true; };
 let packMesh = null;
-function placePack() { if (packMesh) scene.remove(packMesh); packMesh = null; if (!G.pack) return; packMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.35), new THREE.MeshLambertMaterial({ color: 0x7a4a34 })); packMesh.position.set(G.pack.x, G.pack.y + 0.2, G.pack.z); scene.add(packMesh); }
+function placePack() { if (packMesh) scene.remove(packMesh); packMesh = null; if (!G.pack) return; packMesh = art.model('pack'); packMesh.position.set(G.pack.x, surfaceY(G.pack.x, G.pack.z, G.pack.y + 1.5), G.pack.z); packMesh.rotation.y = 0.7; scene.add(packMesh); }
 function die(from) {
   P.dead = true; P.hp = 0; const lost = {}; for (const k of Object.keys(G.inv)) if (['res', 'ammo', 'food', 'med', 'seed'].includes(ITEMS[k].cat)) { lost[k] = G.inv[k]; delete G.inv[k]; }
   G.pack = { x: P.x, y: Math.max(P.y, W.waterLevel(P.x, P.z)), z: P.z, inv: lost }; placePack();
@@ -348,10 +363,32 @@ function respawn() {
 const noSaveFix = () => { saveNow(true); };
 $('btnRespawn').addEventListener('click', respawn);
 
+// ---------------------------------------------------------------- items on the ground
+const drops = [];
+const surfaceY = (x, z, fromY) => { const t = W.ray(x, fromY, z, 0, -1, 0, 40); return t < 40 ? fromY - t : W.H(x, z); };
+function addDrop(id, n, x, y, z, yaw, fromY) {
+  const m = art.model(id), u = m.userData; m.position.set(x, fromY != null ? fromY : y, z); m.rotation.y = yaw; scene.add(m);
+  const d = { id, n, x, y, z, yaw, m, r: u.r, h: u.h, vy: 0, falling: fromY != null && fromY > y + 0.02, spin: rnd(-3, 3) }; drops.push(d);
+  while (drops.length > 400) removeDrop(drops[0]); return d;
+}
+function removeDrop(d) { scene.remove(d.m); const i = drops.indexOf(d); if (i >= 0) drops.splice(i, 1); }
+// put n of an item on the ground just in front of the player (it falls from hand height)
+function dropNear(id, n) {
+  if (n <= 0 || !ITEMS[id]) return; const d = viewDir(), hl = Math.hypot(d.x, d.z) || 1, k = rnd(0.9, 1.4), x = P.x + d.x / hl * k + rnd(-0.25, 0.25), z = P.z + d.z / hl * k + rnd(-0.25, 0.25);
+  addDrop(id, n, x, surfaceY(x, z, P.y + 1.4), z, rnd(0, Math.PI * 2), P.y + 1.2); dirty = true;
+}
+G.dropItem = (id, n) => { n = Math.min(n, G.count(id)); if (n <= 0) return; G.take(id, n); dropNear(id, n); G.sfx('thud'); U.toast(`Dropped ${ITEMS[id].n}${n > 1 ? ' ×' + n : ''}`); };
+function dropsUpdate(dt) {
+  for (const d of drops) { if (!d.falling) continue; d.vy -= 18 * dt; d.m.position.y += d.vy * dt; d.m.rotation.y += d.spin * dt; if (d.m.position.y <= d.y) { d.m.position.y = d.y; d.yaw = d.m.rotation.y; d.falling = false; G.sfx('thud', d); } }
+}
+
 // ---------------------------------------------------------------- interaction
 let target = null, targetT = 0;
 function findTarget() {
   const o = camera.position, d = viewDir(), ox = o.x, oy = o.y, oz = o.z;
+  let bestDrop = null, bdd = 0.42;
+  for (const q of drops) { const fx = q.x - ox, fy = q.y + q.h * 0.5 - oy, fz = q.z - oz; if (Math.abs(fx) + Math.abs(fz) > 6) continue; const t = fx * d.x + fy * d.y + fz * d.z; if (t < 0.2 || t > 3.6) continue; const dist = Math.hypot(fx - d.x * t, fy - d.y * t, fz - d.z * t) - Math.min(0.35, q.r * 0.7); if (dist < bdd) { bdd = dist; bestDrop = q; } }
+  if (bestDrop) return { kind: 'drop', d: bestDrop };
   const s = Bd.target(ox, oy, oz, d.x, d.y, d.z, 4.2); if (s) return { kind: 'struct', s };
   const fx = ox + d.x * 1.5, fz = oz + d.z * 1.5, fy = oy + d.y * 1.5;
   const c = M.corpseNear(fx, fy - 0.6, fz, 2.2); if (c) return { kind: 'corpse', m: c };
@@ -389,6 +426,7 @@ function promptFor(t) {
     }
     return n + tierHint + hp;
   }
+  if (t.kind === 'drop') { const it = ITEMS[t.d.id]; return `<span class="iname">${it.n}${t.d.n > 1 ? ` <b>×${t.d.n}</b>` : ''}</span>` + K('E', 'Pick up'); }
   if (t.kind === 'corpse') return K('E', `Search ${t.m.def.n.toLowerCase()}`);
   if (t.kind === 'pack') return K('E', 'Recover your pack');
   if (t.kind === 'crate') return G.dayFloat() - t.c.day < 6 ? `${t.c.n}<span class="need">Already searched</span>` : K('E', `Search ${t.c.n.toLowerCase()}`);
@@ -396,7 +434,7 @@ function promptFor(t) {
   if (t.kind === 'water') return t.fresh ? K('E', 'Drink') : 'Sea water<span class="need">Too salty to drink</span>';
   return '';
 }
-function giveAll(obj) { for (const k in obj) G.give(k, obj[k]); }
+function giveAll(obj) { for (const k in obj) { const got = G.give(k, obj[k]); if (got < obj[k]) dropNear(k, obj[k] - got); } }
 function useTarget(t, first) {
   if (!t) return;
   if (t.kind === 'struct') {
@@ -425,6 +463,7 @@ function useTarget(t, first) {
     return;
   }
   if (!first) return;
+  if (t.kind === 'drop') { const q = t.d; if (!drops.includes(q)) return; const got = G.give(q.id, q.n); q.n -= got; if (q.n <= 0) removeDrop(q); if (got) { G.sfx('pickup'); dirty = true; } targetT = 0; return; }
   if (t.kind === 'corpse') { giveAll(M.loot(t.m)); G.sfx('pickup'); }
   else if (t.kind === 'pack') { giveAll(G.pack.inv); G.pack = null; placePack(); G.sfx('pickup'); }
   else if (t.kind === 'crate') { if (G.dayFloat() - t.c.day < 6) return; t.c.day = G.dayFloat(); giveAll(rollLoot(LOOT[t.c.tier], 2 + t.c.tier)); G.sfx('pickup'); }
@@ -548,6 +587,7 @@ function frame(now) {
     if (hitT > 0) { hitT -= dt; } $('hitm').style.opacity = hitT > 0 ? 1 : 0; if (vigT > 0) vigT -= dt; $('vig').style.opacity = Math.max(vigT * 1.6, P.hp < 30 ? 0.5 - P.hp / 60 : 0);
     audio.ambient(dt, G.isNight(), P.y, zone === 'Hollowpine forest' || zone === 'Mountain slopes');
   } else if (started && U.open) { if (input.hit('menu') || input.hit('pack')) U.close(); else if (input.hit('map')) { if (U.tab === 'map') U.close(); else { U.tab = 'map'; U.render(); } } else if (input.hit('build')) { if (U.tab === 'build') U.close(); else { U.tab = 'build'; U.render(); } } }
+  if (art) art.prewarm(started ? 1 : 3); dropsUpdate(dt); fliesUpdate(dt, t);
   skyUpdate(active || !started ? dt : 0); lightsUpdate(dt, t); fxUpdate(dt); Bd.update(t); W.update(dt, P.x, P.z, t, Q.near);
   draw(); input.consume();
 }
@@ -566,7 +606,7 @@ input.canLock = () => started && U && !U.open && !P.dead;
 input.onUnlock = () => { if (started && !U.open && !P.dead) U.show('system'); };
 requestAnimationFrame(frame);
 setTimeout(async () => {
-  W = createWorld(scene, { grass: Q.grass }); Bd = createBuild(scene, W); M = createMobs(scene, W, G); U = createUI(G); G.W = W;
+  W = createWorld(scene, { grass: Q.grass }); art = createItemArt(renderer); setIconSource(art.icon); Bd = createBuild(scene, W); M = createMobs(scene, W, G); U = createUI(G); G.W = W;
   // wake on the beach beside the wreck
   startPos = { x: -836, z: 60 };
   const local = store.get(SAVE_KEY);
@@ -577,5 +617,5 @@ setTimeout(async () => {
   const bc = $('btnContinue'), bn = $('btnNew'); bn.disabled = false;
   if (save && save.v === 1) { bc.hidden = false; bc.onclick = () => begin(save); bn.classList.add('ghost'); let armed = false; bn.onclick = () => { if (!armed) { armed = true; bn.textContent = 'Erase the save and start over?'; return; } G.newGame(); }; }
   else bn.onclick = () => begin(null);
-  window.__hp = { G, W, Bd, M, P, begin, input, renderer, scene, camera, wx, setWeather: (id) => { weather = { id, t: 300 }; } };
+  window.__hp = { G, W, Bd, M, P, begin, input, renderer, scene, camera, wx, drops, art, findTarget: () => findTarget(), testFlies: () => { fA = 1; zone = 'Hollowpine forest'; }, setWeather: (id) => { weather = { id, t: 300 }; } };
 }, 60);

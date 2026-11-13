@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildPlaces, POI_DEFS, ROADS } from './places.js';
+import { nodeGeometries, stumpGeometry, createClutter } from './nature.js';
 
 export const SIZE = 2000, HALF = 1000, G = 384, GN = G + 1, CELL = SIZE / G;
 export const LAKE = { x: -420, z: 260, r: 82, y: 19.3 };
@@ -75,6 +76,7 @@ export function createWorld(scene, opts) {
   W.inWater = (x, z) => H(x, z) < 0 || (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r && H(x, z) < LAKE.y);
   W.waterLevel = (x, z) => Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 4 ? LAKE.y : 0;
   // can grass or trees grow here
+  W.forest = (x, z) => fbm(x * 0.006 + 40, z * 0.006, 3) + 0.5;
   const wild = W.wild = (x, z) => { const h = H(x, z); return h > 2.2 && h < 150 && slope(x, z) < 0.62 && !poiNear(x, z, 0) && distRoad(x, z) > 4.5 && !(Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 3); };
 
   // ---- terrain mesh
@@ -96,20 +98,37 @@ export function createWorld(scene, opts) {
     c.putImageData(im, 0, 0); const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
   })();
   W.detail = detail;
-  const terrMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: detail });
-  terrMat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n float mac = texture2D(map, vMapUv * 0.083).r; float mac2 = texture2D(map, vMapUv * 0.017 + 0.37).r;\n diffuseColor.rgb *= mix(0.72, 1.22, mac) * mix(0.82, 1.14, mac2);'); };
+  // ground detail: blades for grass, cracks for rock, pebbles for dirt, sand and snow; blended per vertex
+  const TA = Math.PI * 2 / 256, pn = (x, y, f, o) => noise(Math.cos(x * TA) * f + Math.cos(y * TA) * f * 0.7 + o, Math.sin(x * TA) * f + Math.sin(y * TA) * f * 0.7 + o * 1.3);
+  const mkTex = (base, draw) => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 256; const c = cv.getContext('2d'), im = c.createImageData(256, 256);
+    for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) { const v = Math.max(110, Math.min(250, base(x, y))), k = (y * 256 + x) * 4; im.data[k] = im.data[k + 1] = im.data[k + 2] = v; im.data[k + 3] = 255; }
+    c.putImageData(im, 0, 0); const rr = rng(base.length * 7 + 3); const wrap = (fn) => { for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) { c.save(); c.translate(ox, oy); fn(); c.restore(); } };
+    draw(c, rr, wrap); const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+  };
+  const grassTex = mkTex((x, y) => 196 + 34 * pn(x, y, 4, 1) + 16 * pn(x, y, 13, 5), (c, r, wrap) => { for (let i = 0; i < 4200; i++) { const x = r() * 256, y = r() * 256, a = r() * 6.28, l = 3 + r() * 8, light = r() < 0.5; c.strokeStyle = light ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.22)'; c.lineWidth = 0.8 + r(); if (x < 12 || y < 12 || x > 244 || y > 244) wrap(() => { c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke(); }); else { c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke(); } } });
+  const rockTex = mkTex((x, y) => 188 + 48 * pn(x, y, 3, 2) + 26 * pn(x, y, 9, 7) + 10 * pn(x, y, 30, 3), (c, r, wrap) => { c.lineCap = 'round'; for (let i = 0; i < 46; i++) { let x = r() * 256, y = r() * 256, a = r() * 6.28; const pts = [[x, y]]; for (let k = 0; k < 9; k++) { a += (r() - 0.5) * 1.3; x += Math.cos(a) * (5 + r() * 9); y += Math.sin(a) * (5 + r() * 9); pts.push([x, y]); } wrap(() => { c.strokeStyle = 'rgba(0,0,0,0.38)'; c.lineWidth = 0.7 + r() * 1.3; c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (const p of pts) c.lineTo(p[0], p[1]); c.stroke(); c.strokeStyle = 'rgba(255,255,255,0.14)'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(pts[0][0] + 1, pts[0][1] + 1); for (const p of pts) c.lineTo(p[0] + 1, p[1] + 1); c.stroke(); }); } for (let i = 0; i < 2600; i++) { c.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.18)'; c.fillRect(r() * 256, r() * 256, 1 + r(), 1 + r()); } });
+  const dirtTex = mkTex((x, y) => 198 + 26 * pn(x, y, 5, 4) + 12 * pn(x, y, 16, 8), (c, r, wrap) => { for (let i = 0; i < 300; i++) { const x = r() * 256, y = r() * 256, rx = 1.2 + r() * 3.2, ry = rx * (0.6 + r() * 0.4), a = r() * 3.14, v = 210 + r() * 40; wrap(() => { c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(x + 0.8, y + 1.1, rx, ry, a, 0, 6.29); c.fill(); c.fillStyle = `rgb(${v},${v},${v})`; c.beginPath(); c.ellipse(x, y, rx, ry, a, 0, 6.29); c.fill(); }); } for (let i = 0; i < 3800; i++) { c.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.2)'; c.fillRect(r() * 256, r() * 256, 1, 1); } });
+  const splatAt = (x, z, h, sl, out) => {
+    const n = fbm(x * 0.02, z * 0.02, 3), n2 = noise(x * 0.11, z * 0.11), snow = smooth(152, 172, h + n * 26) * (1 - smooth(0.9, 1.5, sl));
+    let rock = Math.max(smooth(0.5, 0.82, sl + n2 * 0.08), smooth(112, 150, h + n * 30) * 0.9) * (1 - snow * 0.7), dirt = Math.max(smooth(3.0, 1.7, h), snow * 0.8, smooth(0.32, 0.62, n2) * 0.45);
+    const dr = distRoad(x, z); if (dr < 6 && h > 1) dirt = Math.max(dirt, smooth(6, 2.5, dr)); const p = poiNear(x, z, 8); if (p && p.ground) dirt = Math.max(dirt, smooth(p.r + 8, p.r * 0.7, Math.hypot(x - p.x, z - p.z)) * 0.9);
+    out[0] = Math.max(0.03, 1 - rock - dirt); out[1] = rock; out[2] = dirt;
+  };
+  const terrMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: grassTex });
+  terrMat.onBeforeCompile = (sh) => { sh.uniforms.tRock = { value: rockTex }; sh.uniforms.tDirt = { value: dirtTex }; sh.vertexShader = 'attribute vec3 splat;\nvarying vec3 vSplat;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vSplat = splat;'); sh.fragmentShader = 'uniform sampler2D tRock; uniform sampler2D tDirt; varying vec3 vSplat;\n' + sh.fragmentShader.replace('#include <map_fragment>', 'vec3 sw = vSplat / max(0.001, vSplat.x + vSplat.y + vSplat.z);\n diffuseColor.rgb *= texture2D(map, vMapUv).rgb * sw.x + texture2D(tRock, vMapUv * 0.55).rgb * sw.y + texture2D(tDirt, vMapUv * 1.3).rgb * sw.z;\n float mac = texture2D(tRock, vMapUv * 0.071).r; float mac2 = texture2D(map, vMapUv * 0.017 + 0.37).r;\n diffuseColor.rgb *= mix(0.72, 1.22, mac) * mix(0.82, 1.14, mac2);'); };
   const CH = 48, tmp = [0, 0, 0];
   for (let cj = 0; cj < G / CH; cj++) for (let ci = 0; ci < G / CH; ci++) {
-    const n = CH + 1, pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), nor = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2), idx = [];
+    const n = CH + 1, pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), spl = new Float32Array(n * n * 3), nor = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2), idx = [];
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
       const gi = ci * CH + i, gj = cj * CH + j, x = -HALF + gi * CELL, z = -HALF + gj * CELL, h = HM[gj * GN + gi], k = j * n + i;
       pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; uv[k * 2] = x / 7; uv[k * 2 + 1] = z / 7;
       const hl = HM[gj * GN + Math.max(0, gi - 1)], hr = HM[gj * GN + Math.min(G, gi + 1)], hu = HM[Math.max(0, gj - 1) * GN + gi], hd = HM[Math.min(G, gj + 1) * GN + gi];
       const nx = hl - hr, nz = hu - hd, ny = 2 * CELL, l = Math.hypot(nx, ny, nz); nor[k * 3] = nx / l; nor[k * 3 + 1] = ny / l; nor[k * 3 + 2] = nz / l;
-      colAt(x, z, h, Math.hypot(nx, nz) / ny, tmp); col[k * 3] = tmp[0]; col[k * 3 + 1] = tmp[1]; col[k * 3 + 2] = tmp[2];
+      colAt(x, z, h, Math.hypot(nx, nz) / ny, tmp); col[k * 3] = tmp[0]; col[k * 3 + 1] = tmp[1]; col[k * 3 + 2] = tmp[2]; splatAt(x, z, h, Math.hypot(nx, nz) / ny, tmp); spl[k * 3] = tmp[0]; spl[k * 3 + 1] = tmp[1]; spl[k * 3 + 2] = tmp[2];
     }
     for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) { const a = j * n + i, d = a + 1, b = a + n, c = b + 1; idx.push(a, b, d, b, c, d); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeBoundingSphere();
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('splat', new THREE.BufferAttribute(spl, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeBoundingSphere();
     const m = new THREE.Mesh(g, terrMat); m.receiveShadow = true; m.matrixAutoUpdate = false; scene.add(m);
   }
 
@@ -212,6 +231,7 @@ export function createWorld(scene, opts) {
     boulder: { n: 'Boulder', mine: { stone: [2, 3] }, hp: 90, solid: 1.1, regrow: 5 },
     iron: { n: 'Iron vein', mine: { iron_ore: [1, 2], stone: [0, 1] }, hp: 110, solid: 1.1, regrow: 5 },
     sulfur: { n: 'Sulfur deposit', mine: { sulfur: [1, 2] }, hp: 90, solid: 1.0, regrow: 5 },
+    deadfall: { n: 'Fallen log', mine: { log: [1, 2], stick: [0, 2] }, hp: 130, chop: 1, regrow: 6, box: [2.45, 0.36, 0.62] },
     salvage: { n: 'Wreck', mine: { scrap: [2, 4], metal: [0, 1] }, hp: 140, regrow: 8, hidden: 1, any: 1 },
   };
   const NC = 6, nodeHash = new Map();
@@ -219,6 +239,7 @@ export function createWorld(scene, opts) {
     const t = NT[type], n = { id: W.nodes.length, type, x, z, y: H(x, z), s, alive: true, hp: t.hp || 0, day: 0, rot: jr() * 6.28 };
     W.nodes.push(n); const k = key(Math.floor(x / NC), Math.floor(z / NC)); let a = nodeHash.get(k); if (!a) nodeHash.set(k, a = []); a.push(n);
     if (t.solid) n.col = W.addCollider({ x, z, r: t.solid * s * 0.8, y0: n.y - 1, y1: n.y + t.solid * s * 1.3, node: n });
+    if (t.box) { const L = 2.1 * s, ca = Math.cos(n.rot), sa = Math.sin(n.rot), h1 = H(x + ca * L, z - sa * L), h0 = H(x - ca * L, z + sa * L); n.tilt = Math.atan2(h1 - h0, 2 * L); n.y = (h0 + h1) / 2 - 0.05; n.col = W.addCollider({ x, z, hx: t.box[0] * s, hz: t.box[1] * s, c: ca, s: sa, y0: n.y - 1, y1: n.y + t.box[2] * s, node: n }); }
     return n;
   }
   W.nodesNear = (x, z, r, out) => { out.length = 0; for (let iz = Math.floor((z - r) / NC); iz <= Math.floor((z + r) / NC); iz++) for (let ix = Math.floor((x - r) / NC); ix <= Math.floor((x + r) / NC); ix++) { const a = nodeHash.get(key(ix, iz)); if (a) for (const n of a) out.push(n); } return out; };
@@ -278,7 +299,7 @@ export function createWorld(scene, opts) {
     near.castShadow = true; near.visible = false;
     chunks.push({ x: cx, z: cz, near, far });
   }
-  const stumpGeo = paint(new THREE.CylinderGeometry(0.3, 0.36, 0.5, 7), 0x6b5236, false); stumpGeo.translate(0, 0.25, 0);
+  const stumpGeo = stumpGeometry();
   const stumps = new THREE.InstancedMesh(stumpGeo, treeMat, 3000); stumps.count = 0; stumps.frustumCulled = false; scene.add(stumps);
   const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
   W.fellTree = (i, silent) => {
@@ -300,21 +321,16 @@ export function createWorld(scene, opts) {
     if (h > 60 && Math.hypot(x - MTN.x, z - MTN.z) < 430) { if (slope(x, z) > 0.9 || poiNear(x, z, 2)) continue; if (q < 0.2) addNode('iron', x, z, 0.8 + r() * 0.5); else if (q < 0.32 && h > 105) addNode('sulfur', x, z, 0.7 + r() * 0.4); else if (q < 0.55) addNode('boulder', x, z, 0.8 + r() * 0.9); else if (q < 0.7 && h < 150) tryNode('stone', x, z); continue; }
     if (q < 0.3) tryNode('sticks', x, z); else if (q < 0.52) tryNode('stone', x, z); else if (q < 0.66) tryNode('bush', x, z, 0.8 + r() * 0.5); else if (q < 0.74) tryNode('mushroom', x, z); else if (q < 0.92) tryNode('flax', x, z, 0.8 + r() * 0.5); else if (q < 0.985) tryNode('boulder', x, z, 0.7 + r() * 0.9); else tryNode(r() < 0.5 ? 'iron' : 'sulfur', x, z, 0.8);
   }
-  const stickG = (() => { const a = []; for (let i = 0; i < 4; i++) { const g = new THREE.CylinderGeometry(0.025, 0.035, 0.9 + i * 0.12, 4); g.rotateZ(Math.PI / 2); g.rotateY(i * 0.9); g.translate((i - 1.5) * 0.08, 0.05 + i * 0.03, (i % 2) * 0.1); a.push(paint(g, 0x7a5c3c, false)); } return merge(a); })();
-  const stoneG = merge([paint(new THREE.DodecahedronGeometry(0.2, 0).translate(0, 0.1, 0), 0x8d9093), paint(new THREE.DodecahedronGeometry(0.13, 0).translate(0.26, 0.06, 0.1), 0x7e8285)]);
-  const bushG = merge([blob(0.7, 0, 0.55, 0, 0x2f5a22, 0), blob(0.5, 0.5, 0.45, 0.2, 0x38682a, 0), blob(0.5, -0.4, 0.42, -0.3, 0x2a5220, 0), ...[...Array(7)].map((_, i) => paint(new THREE.TetrahedronGeometry(0.1, 0).translate(Math.cos(i * 2.4) * 0.62, 0.45 + (i % 3) * 0.22, Math.sin(i * 2.4) * 0.62), 0xb0243f, false))]);
-  const mushG = merge([paint(new THREE.CylinderGeometry(0.03, 0.04, 0.16, 5).translate(0, 0.08, 0), 0xe8dcc4, false), paint(new THREE.SphereGeometry(0.11, 7, 4, 0, 6.28, 0, 1.5).translate(0, 0.14, 0), 0xb0683a, false), paint(new THREE.CylinderGeometry(0.02, 0.03, 0.1, 5).translate(0.16, 0.05, 0.06), 0xe8dcc4, false), paint(new THREE.SphereGeometry(0.07, 7, 4, 0, 6.28, 0, 1.5).translate(0.16, 0.09, 0.06), 0xb0683a, false)]);
-  const flaxG = merge([...Array(7)].map((_, i) => { const g = new THREE.ConeGeometry(0.035, 1.0 + (i % 3) * 0.2, 3); g.translate(0, 0.55, 0); g.rotateZ(((i % 3) - 1) * 0.22); g.rotateY(i * 0.9); g.translate(Math.cos(i * 0.9) * 0.14, 0, Math.sin(i * 0.9) * 0.14); return paint(g, i % 2 ? 0x9cba58 : 0x7ea044); }));
-  const bould = (c, c2) => merge([paint(new THREE.DodecahedronGeometry(1.1, 0).scale(1, 0.8, 0.9).translate(0, 0.5, 0), c), paint(new THREE.DodecahedronGeometry(0.6, 0).translate(0.8, 0.25, 0.4), c2)]);
-  const nodeGeo = { sticks: stickG, stone: stoneG, bush: bushG, mushroom: mushG, flax: flaxG, boulder: bould(0x7f8386, 0x6f7376), iron: bould(0x7c5a48, 0xa5532f), sulfur: bould(0x8f8a5a, 0xcdbb35) };
+  for (let i = 0; i < 3200; i++) { const x = (r() - 0.5) * 1800, z = (r() - 0.5) * 1800, s = 0.8 + r() * 0.35; if (W.forest(x, z) < 0.36 || H(x, z) > 95 || slope(x, z) > 0.3 || !wild(x, z) || !wild(x + 2.5, z) || !wild(x - 2.5, z) || !wild(x, z + 2.5) || !wild(x, z - 2.5) || poiNear(x, z, 12)) continue; addNode('deadfall', x, z, s); }
+  const nodeGeo = nodeGeometries();
   const nodeMesh = {};
   const nodeChunks = [], nper = new Map();
   for (const n of W.nodes) { if (!nodeGeo[n.type]) continue; const k = n.type + ':' + (Math.floor((n.z + HALF) / TC) * TCN + Math.floor((n.x + HALF) / TC)); let a = nper.get(k); if (!a) nper.set(k, a = []); a.push(n); }
   for (const [k, list] of nper) {
     const [type, chs] = k.split(':'), ch = +chs, m = new THREE.InstancedMesh(nodeGeo[type], treeMat, list.length);
-    list.forEach((n, j) => { n.mesh = m; n.j = j; D.position.set(n.x, n.y - 0.03, n.z); D.rotation.set(0, n.rot, 0); D.scale.setScalar(n.s); D.updateMatrix(); m.setMatrixAt(j, D.matrix); n.mat = D.matrix.clone(); });
-    m.frustumCulled = false; m.castShadow = type === 'boulder' || type === 'iron' || type === 'sulfur' || type === 'bush'; m.receiveShadow = true; m.visible = false; m.matrixAutoUpdate = false; scene.add(m);
-    nodeChunks.push({ x: (ch % TCN) * TC - HALF + TC / 2, z: Math.floor(ch / TCN) * TC - HALF + TC / 2, m, big: type === 'boulder' || type === 'iron' || type === 'sulfur' });
+    list.forEach((n, j) => { n.mesh = m; n.j = j; D.position.set(n.x, n.y - 0.03, n.z); D.rotation.set(0, n.rot, n.tilt || 0); D.scale.setScalar(n.s); D.updateMatrix(); m.setMatrixAt(j, D.matrix); n.mat = D.matrix.clone(); });
+    m.frustumCulled = false; m.castShadow = type === 'boulder' || type === 'iron' || type === 'sulfur' || type === 'bush' || type === 'deadfall'; m.receiveShadow = true; m.visible = false; m.matrixAutoUpdate = false; scene.add(m);
+    nodeChunks.push({ x: (ch % TCN) * TC - HALF + TC / 2, z: Math.floor(ch / TCN) * TC - HALF + TC / 2, m, big: type === 'boulder' || type === 'iron' || type === 'sulfur' || type === 'deadfall' });
   }
   W.setNode = (n, alive, day) => { n.alive = alive; n.day = day || 0; if (alive) n.hp = NT[n.type].hp || 0; if (n.mesh) { n.mesh.setMatrixAt(n.j, alive ? n.mat : ZERO); n.mesh.instanceMatrix.needsUpdate = true; } if (n.col) n.col.off = !alive; };
 
@@ -324,6 +340,7 @@ export function createWorld(scene, opts) {
   const gU = { t: { value: 0 } };
   grassMat.onBeforeCompile = (s) => { s.uniforms.uT = gU.t; s.vertexShader = 'uniform float uT;\n' + s.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = vec3(position);\n vec4 ip = instanceMatrix * vec4(0.,0.,0.,1.);\n float sw = sin(uT*1.7 + ip.x*0.35 + ip.z*0.27) * 0.5 + sin(uT*0.6 + ip.z*0.11);\n transformed.x += sw * 0.09 * position.y * position.y * 4.0;\n transformed.z += sw * 0.05 * position.y * position.y * 4.0;'); };
   const grass = new THREE.InstancedMesh(grassGeo, grassMat, GR * GR); grass.frustumCulled = false; grass.receiveShadow = true; scene.add(grass);
+  const clutter = createClutter(scene, W, { radius: opts.grass * 0.55, sway: grassMat, solid: treeMat });
   let gcx = 1e9, gcz = 1e9;
   const hash2 = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177 | 0; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
   function regrass(px, pz) {
@@ -350,10 +367,10 @@ export function createWorld(scene, opts) {
 
   // ---- per-frame
   W.update = (dt, px, pz, time, nearDist) => {
-    gU.t.value = time; tU.t.value = time; regrass(px, pz);
+    gU.t.value = time; tU.t.value = time; regrass(px, pz); clutter.update(px, pz);
     wn.offset.set(time * 0.004, time * 0.0027); wn2.offset.set(-time * 0.006, time * 0.004);
     for (const c of chunks) { const d = Math.hypot(c.x - px, c.z - pz), n = d < nearDist; if (c.near.visible !== n) { c.near.visible = n; c.far.visible = !n; } }
-    for (const c of nodeChunks) c.m.visible = Math.hypot(c.x - px, c.z - pz) < (c.big ? nearDist + 170 : nearDist + 20);
+    for (const c of nodeChunks) c.m.visible = Math.hypot(c.x - px, c.z - pz) < (c.big ? nearDist + 170 : Math.min(nearDist, 140));
     for (let i = fallers.length - 1; i >= 0; i--) { const f = fallers[i]; f.t += dt; const a = Math.min(1.5, f.t * f.t * 0.9); f.m.rotation.set(Math.cos(f.dir) * a, 0, Math.sin(f.dir) * a); if (f.t > 1.9) { scene.remove(f.m); fallers.splice(i, 1); } }
   };
 

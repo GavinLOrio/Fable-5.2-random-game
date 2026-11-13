@@ -41,7 +41,8 @@ Build with `node tools/build.mjs rome`. The coastline mask is generated from Nat
 You wash ashore on a 2 km wide island: mostly pine forest, with the abandoned town of Ashby, the harbor of Port Hallam, a snow-capped mountain and 27 named places to find.
 
 - Survive: health, food, water and stamina; day and night; weather on a random timer (clear, overcast, rain, thunderstorm, fog, snow up high) that changes visibility, enemy sight, cold, rain collectors and crops.
-- Gather and craft: fell trees, mine rock and ore, pick plants, hunt, search crates and wrecks.
+- Gather and craft: fell trees and fallen logs, mine rock and ore, pick plants (wild flax has blue flowers), hunt, search crates and wrecks.
+- Inventory: slot grid, belt and clothing slot with drag and drop. Every item has its own 3D model, used for its inventory picture and when it lies on the ground. Drop items (or drag them out of the inventory) and they land in front of you; look at one to see its name and press E to pick it up. Anything that does not fit in a full inventory falls to the ground. Dropped items are saved.
 - Build: pick a blueprint, place its ghost, then carry materials to it piece by piece. Foundations, floors, walls, doors, stairs and roofs snap together and go up in thatch; a building hammer upgrades each piece to wood, stone and metal. High walls and climbable ladders for the perimeter; enemies attack what you build.
 - Research: three research tables, each dearer than the last, unlock blueprints for scrap: iron tools and black-powder guns, war-era firearms, then modern weapons and armor.
 - Farm: garden plots on open ground and planter boxes inside your base, seven crops, watering and rain.

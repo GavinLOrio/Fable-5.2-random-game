@@ -19,7 +19,9 @@ const P = {
   hammer: 'M3 4h13v6H3zM9 10h3v12H9z',
   crop: 'M12 22c-4 0-6-3-6-7s3-6 6-6 6 2 6 6-2 7-6 7zM11 9c0-3-2-5-5-6 4-1 6 1 6 4 0-3 2-5 6-4-3 1-5 3-5 6z', seed: 'M8 14a3 4 0 1 0 0.1 0zM16 12a2.5 3.5 0 1 0 0.1 0zM12 4a2.5 3.5 0 1 0 0.1 0z',
 };
-export const icon = (id) => { const it = ITEMS[id]; return `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" fill="${it ? it.tint : '#9da38d'}" d="${P[it ? it.icon : 'gear'] || P.gear}"/></svg>`; };
+let iconSrc = null;
+export const setIconSource = (f) => { iconSrc = f; };
+export const icon = (id) => { const src = iconSrc && ITEMS[id] ? iconSrc(id) : null; if (src) return `<img class="ico" src="${src}" alt="" draggable="false">`; const it = ITEMS[id]; return `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" fill="${it ? it.tint : '#9da38d'}" d="${P[it ? it.icon : 'gear'] || P.gear}"/></svg>`; };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const CATS = [['weapon', 'Weapons'], ['tool', 'Tools'], ['armor', 'Armor'], ['ammo', 'Ammunition'], ['food', 'Food & water'], ['med', 'Medicine'], ['seed', 'Seeds'], ['res', 'Materials']];
 
@@ -70,12 +72,12 @@ export function createUI(G) {
       let belt = ''; G.hot.forEach((id, i) => { belt += slot(id && G.count(id) ? id : null, 'b:' + i, 'b:' + i, i + 1); });
       const p = G.P, bar = (l, v, c) => `<div class="ivit"><span>${l}</span><i><b style="width:${Math.round(v)}%;background:${c}"></b></i><em class="num">${Math.round(v)}</em></div>`;
       const k = U.selItem && G.inv[U.selItem] > 0 ? U.selItem : null, it = k && ITEMS[k];
-      let d = '<div class="idetail"><span class="label">Nothing selected</span><p>Click an item to inspect it. Drag items onto the belt (keys 1 to 8) or the clothing slot. Right-click uses, wears or belts an item.</p></div>';
+      let d = '<div class="idetail"><span class="label">Nothing selected</span><p>Click an item to inspect it. Drag items onto the belt (keys 1 to 8) or the clothing slot. Right-click uses, wears or belts an item. Drag an item outside this window to drop it on the ground.</p></div>';
       if (it) {
         const usable = it.food || it.water || it.hp, w = it.w;
         d = `<div class="idetail"><div class="ihead">${icon(k)}<div><span class="label">${esc(CATS.find((c) => c[0] === it.cat)[1])}${w && w.era ? ' · ' + w.era : ''}</span><h3>${esc(it.n)}</h3></div></div><p>${esc(it.d)}</p>
         ${w ? `<p class="num">${w.kind === 'gun' ? `Damage ${w.dmg}${w.pellets > 1 ? '×' + w.pellets : ''} · ${w.rpm} rpm · ${w.mag} rounds · ${ITEMS[w.ammo].n}` : w.kind === 'bow' ? `Damage ${w.dmg} · ${ITEMS[w.ammo].n}` : `Damage ${w.dmg} · reach ${w.range} m${w.tree >= 1 ? ' · fells trees' : ''}${w.ore >= 1 ? ' · mines rock' : ''}`}</p>` : ''}
-        <div class="row">${usable ? `<button class="btn" data-use="${k}">${it.food ? 'Eat' : it.water ? 'Drink' : 'Use'}</button>` : ''}${it.armor ? `<button class="btn" data-wear="${k}">${G.armor === k ? 'Take off' : 'Wear'}</button>` : ''}<button class="btn ghost" data-drop-item="${k}">Discard</button></div>
+        <div class="row">${usable ? `<button class="btn" data-use="${k}">${it.food ? 'Eat' : it.water ? 'Drink' : 'Use'}</button>` : ''}${it.armor ? `<button class="btn" data-wear="${k}">${G.armor === k ? 'Take off' : 'Wear'}</button>` : ''}<button class="btn ghost" data-drop-item="${k}">${G.count(k) > 1 ? 'Drop all' : 'Drop'}</button>${G.count(k) > 1 ? `<button class="btn ghost" data-drop-one="${k}">Drop one</button>` : ''}</div>
         ${it.cat !== 'res' && it.cat !== 'armor' && it.cat !== 'ammo' ? `<span class="label">Belt slot</span><div class="row">${G.hot.map((h, i) => `<button class="btn sm ${h === k ? '' : 'ghost'}" data-hot="${i}">${i + 1}</button>`).join('')}</div>` : ''}</div>`;
       }
       return `<div class="inv"><div class="invL"><span class="ilbl">Clothing</span>${slot(G.armor && G.count(G.armor) ? G.armor : null, 'armor', 'armor')}<span class="ihint">${G.armor ? Math.round(ITEMS[G.armor].armor * 100) + '% protection' : 'No armor'}</span><span class="ilbl">Vitals</span>${bar('Health', p.hp, 'var(--blood)')}${bar('Food', p.food, 'var(--amber)')}${bar('Water', p.water, 'var(--water)')}</div>
@@ -124,7 +126,7 @@ export function createUI(G) {
   };
   body.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b || b.disabled) return; const d = b.dataset;
-    if (d.item) U.selItem = d.item; else if (d.use) G.useItem(d.use); else if (d.wear) G.wear(d.wear); else if (d.dropItem) { G.take(d.dropItem, G.count(d.dropItem)); U.selItem = null; }
+    if (d.item) U.selItem = d.item; else if (d.use) G.useItem(d.use); else if (d.wear) G.wear(d.wear); else if (d.dropItem) { G.dropItem(d.dropItem, G.count(d.dropItem)); U.selItem = null; } else if (d.dropOne) G.dropItem(d.dropOne, 1);
     else if (d.hot) G.assign(+d.hot, U.selItem); else if (d.craft) G.craft(RECIPES[+d.craft], e.shiftKey ? 5 : 1); else if (d.build) { G.startBuild(d.build); return; }
     else if (d.tech) G.research(d.tech); else if (d.move) G.chestMove(d.move, d.to === '1');
     else if (d.set) G.setSetting(d.set, +d.v);
@@ -142,7 +144,8 @@ export function createUI(G) {
   });
   window.addEventListener('pointerup', (e) => {
     if (!drag) return; const d = drag; drag = null; if (!d.ghost) { U.selItem = d.id; G.sfx('ui'); U.render(); return; }
-    d.ghost.remove(); const el = document.elementFromPoint(e.clientX, e.clientY), t = el && el.closest('[data-drop]'); if (!t || !U.open) return;
+    d.ghost.remove(); const el = document.elementFromPoint(e.clientX, e.clientY), t = el && el.closest('[data-drop]'); if (!U.open) return;
+    if (!t) { const r = document.querySelector('#ui .box').getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) { G.dropItem(d.id, G.count(d.id)); U.selItem = null; U.render(); } return; }
     const to = t.dataset.drop, [fk, fi] = d.from.split(':'), [tk, ti] = to.split(':'), it = ITEMS[d.id];
     if (tk === 'armor') { if (it.armor) G.armor = d.id; }
     else if (tk === 'b') { if (it.cat === 'res' || it.cat === 'ammo' || it.cat === 'armor') { U.toast('That cannot go on the belt', 'bad'); } else if (fk === 'b') { const a = G.hot[+ti]; G.hot[+ti] = d.id; G.hot[+fi] = a; } else G.assign(+ti, d.id); }
