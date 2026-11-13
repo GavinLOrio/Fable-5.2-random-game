@@ -152,6 +152,7 @@ export function createBuild(scene, W) {
 
   Bd.place = (type, x, y, z, yaw, o = {}) => {
     const def = STRUCT_BY_ID[type], s = { type, def, x, y, z, yaw, done: !!o.done, prog: o.prog || {}, hp: o.hp != null ? o.hp : def.hp, tier: o.tier || 0, cols: [], group: new THREE.Group(), open: !!o.open, inv: o.inv || (type === 'chest' ? {} : null), crop: o.crop || null, water: o.water != null ? o.water : 1 };
+    if (o.hp == null) s.hp = Bd.maxHp(s);
     s.group.position.set(x, y, z); s.group.rotation.y = yaw; scene.add(s.group); rebuild(s); Bd.setCrop(s); setColliders(s, s.done); if (s.done && s.open) for (const c of s.cols) c.off = true;
     Bd.structs.push(s); return s;
   };
