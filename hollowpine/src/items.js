@@ -146,9 +146,16 @@ export function createItemArt(renderer) {
   const P = new THREE.Vector3();
   art.icon = (id) => {
     if (icons.has(id)) return icons.get(id); if (!ITEMS[id]) return null; if (!sc) setup();
-    const obj = art.model(id), u = obj.userData, holder = new THREE.Group(); holder.add(obj); sc.add(holder);
-    const flat = u.h < 0.45 * u.r * 2; if (u.long > 2.2) holder.rotation.y = 0.62;
-    const dir = flat ? new THREE.Vector3(0.0, 1, 0.62) : new THREE.Vector3(0.75, 0.62, 1); dir.normalize();
+    const holder = new THREE.Group(); let dir, flat = false;
+    const wm = weaponModel(id);
+    if (wm) {
+      // weapons: a straight side view, muzzle or blade to the right and grip down; hand tools stand on a slant
+      const w = ITEMS[id].w, tool = w && w.kind === 'melee' && id !== 'spear'; BB.setFromObject(wm); BB.getSize(P); wm.rotation.x = tool ? -0.75 : P.z > 0.6 ? 0.5 : 0; holder.add(wm); dir = new THREE.Vector3(1, 0.05, 0);
+    } else {
+      const obj = art.model(id), u = obj.userData; holder.add(obj); flat = u.h < 0.45 * u.r * 2; if (u.long > 2.2) holder.rotation.y = 0.62;
+      dir = flat ? new THREE.Vector3(0.0, 1, 0.62) : new THREE.Vector3(0.75, 0.62, 1);
+    }
+    dir.normalize(); sc.add(holder);
     BB.setFromObject(holder); const c = BB.getCenter(new THREE.Vector3()); cam.position.copy(c).addScaledVector(dir, 10); cam.up.set(0, 1, 0); if (flat) cam.up.set(0, 0, -1); cam.lookAt(c); cam.updateMatrixWorld(true);
     // fit the camera to the projected vertices
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; holder.updateMatrixWorld(true);
