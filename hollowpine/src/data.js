@@ -59,6 +59,7 @@ export const ITEMS = {
   // primitive tools and weapons
   stone_axe: { n: 'Stone Hatchet', cat: 'tool', icon: 'axe', tint: '#9aa0a3', max: 1, w: melee(16, 2.6, 0.62, 1, 0.2), d: 'Chops trees. Weak in a fight.' },
   stone_pick: { n: 'Stone Pickaxe', cat: 'tool', icon: 'pick', tint: '#9aa0a3', max: 1, w: melee(14, 2.6, 0.7, 0.2, 1), d: 'Breaks boulders and ore.' },
+  hammer: { n: 'Building Hammer', cat: 'tool', icon: 'hammer', tint: '#b9a27a', max: 1, w: melee(8, 2.4, 0.5), d: 'Hold it and press E on a building piece to upgrade thatch to wood, stone, then metal, or to repair damage.' },
   club: { n: 'Wooden Club', cat: 'weapon', icon: 'club', tint: '#9a6b3f', max: 1, w: melee(22, 2.5, 0.6), d: 'A heavy branch. Better than fists.' },
   spear: { n: 'Bone Spear', cat: 'weapon', icon: 'spear', tint: '#e6dfc8', max: 1, w: melee(30, 3.6, 0.75), d: 'Long reach keeps teeth away.' },
   torch: { n: 'Torch', cat: 'tool', icon: 'torch', tint: '#e89a3c', max: 1, w: melee(10, 2.3, 0.6), light: 1, d: 'Lights the night while held.' },
@@ -93,7 +94,7 @@ const R = (id, cost, tier = 0, n = 1, st = null) => ({ id, cost, tier, n, st });
 export const RECIPES = [
   R('rope', { fiber: 3 }), R('cloth', { fiber: 4 }), R('bandage', { cloth: 2 }),
   R('stone_axe', { stick: 2, stone: 2, fiber: 2 }), R('stone_pick', { stick: 2, stone: 3, fiber: 2 }),
-  R('club', { log: 1 }), R('spear', { stick: 3, bone: 2, rope: 1 }), R('torch', { stick: 1, cloth: 1 }),
+  R('hammer', { stick: 2, stone: 2, rope: 1 }), R('club', { log: 1 }), R('spear', { stick: 3, bone: 2, rope: 1 }), R('torch', { stick: 1, cloth: 1 }),
   R('bow', { stick: 3, rope: 2 }), R('arrow', { stick: 2, stone: 1 }, 0, 4),
   R('poultice', { herb: 2, cloth: 1 }), R('baked_potato', { potato: 1 }, 0, 1, 'fire'), R('roast_corn', { corn: 1 }, 0, 1, 'fire'),
   R('cooked_meat', { raw_meat: 1 }, 0, 1, 'fire'), R('charcoal', { log: 1 }, 0, 3, 'fire'), R('water_bottle', { empty_bottle: 1, berries: 0 }, 0, 1, 'water'),
@@ -117,11 +118,11 @@ for (const r of RECIPES) for (const k in r.cost) if (!r.cost[k]) delete r.cost[k
 const T = (id, tier, cost, req = null, n = null) => ({ id, tier, cost, req, n });
 export const TECH = [
   T('gunpowder', 1, 30), T('iron_axe', 1, 25), T('iron_pick', 1, 25), T('machete', 1, 40, 'iron_axe'), T('crossbow', 1, 45), T('hide_armor', 1, 35),
-  T('flintlock', 1, 60, 'gunpowder'), T('musket', 1, 90, 'flintlock'), T('s_furnace', 1, 30, null, 'Furnace'), T('s_stone_wall', 1, 50, null, 'Stone Walls'), T('s_gate', 1, 40, null, 'Log Gate'),
+  T('flintlock', 1, 60, 'gunpowder'), T('musket', 1, 90, 'flintlock'), T('s_furnace', 1, 30, null, 'Furnace'), T('s_stone_wall', 1, 50, null, 'Stone building'), T('s_gate', 1, 40, null, 'Log Gate'),
   T('revolver', 2, 120), T('bolt_rifle', 2, 160), T('trench_gun', 2, 200, 'revolver'), T('smg', 2, 240, 'revolver'), T('service_rifle', 2, 280, 'bolt_rifle'),
   T('field_armor', 2, 150), T('medkit', 2, 100), T('s_tower', 2, 120, null, 'Watchtower'), T('s_lamp', 2, 80, null, 'Lantern Post'),
   T('pistol', 3, 300), T('combat_shotgun', 3, 450, 'pistol'), T('assault_rifle', 3, 600, 'pistol'), T('marksman', 3, 750, 'assault_rifle'),
-  T('tac_armor', 3, 500), T('flashlight', 3, 250), T('s_metal_wall', 3, 400, null, 'Steel Walls'),
+  T('tac_armor', 3, 500), T('flashlight', 3, 250), T('s_metal_wall', 3, 400, null, 'Steel building'),
 ];
 // ammo recipes unlock with their first weapon
 export const TECH_GRANTS = { crossbow: ['bolt'], flintlock: ['ball'], revolver: ['pistol_ammo'], bolt_rifle: ['rifle_ammo'], trench_gun: ['shell'], assault_rifle: ['carbine_ammo'], pistol: ['pistol_ammo'], marksman: ['rifle_ammo'], combat_shotgun: ['shell'], smg: ['pistol_ammo'], service_rifle: ['rifle_ammo'], musket: ['ball'] };
@@ -141,22 +142,23 @@ export const STRUCTS = [
   S('research2', 'Research Table II', 'Research', { log: 12, metal: 30, parts: 6, scrap: 150 }, 800, 'free', { d: 'Learn war-era blueprints. Craft tier II items nearby.' }),
   S('research3', 'Research Table III', 'Research', { metal: 70, parts: 18, electronics: 10, scrap: 500 }, 1200, 'free', { d: 'Learn modern blueprints. Craft tier III items nearby.' }),
   S('furnace', 'Furnace', 'Research', { stone: 40, log: 4 }, 600, 'free', { tech: 's_furnace', d: 'Smelts ore and scrap into metal ingots.' }),
-  S('foundation', 'Foundation', 'Building', { log: 6 }, 600, 'found', { d: 'A level log platform on posts. Walls and floors snap to it.' }),
-  S('floor', 'Upper Floor', 'Building', { log: 5 }, 400, 'floor', { d: 'Snaps above a foundation, on top of the walls.' }),
-  S('wall', 'Log Wall', 'Building', { log: 6 }, 500, 'wall', { d: 'Snaps to foundation edges and to other walls.' }),
-  S('doorway', 'Doorway Wall', 'Building', { log: 5 }, 450, 'wall', { d: 'A wall with a door frame.' }),
-  S('window', 'Window Wall', 'Building', { log: 5 }, 450, 'wall', { d: 'A wall with a shooting window.' }),
-  S('door', 'Plank Door', 'Building', { log: 2, rope: 1 }, 250, 'door', { d: 'Fits a doorway. Enemies must break it down.' }),
-  S('stairs', 'Log Stairs', 'Building', { log: 6 }, 400, 'stairs', { d: 'Climb one storey.' }),
-  S('roof', 'Roof', 'Building', { log: 4, stick: 6 }, 300, 'floor', { d: 'A pitched cover. Snaps above a foundation.' }),
-  S('palisade', 'Palisade', 'Defense', { log: 4 }, 450, 'wall', { d: 'Tall sharpened stakes. Cheap perimeter wall.' }),
+  S('foundation', 'Foundation', 'Building', { stick: 8, fiber: 4 }, 120, 'found', { tiered: 1, u: 1.2, d: 'A level platform on posts. Walls and floors snap to it.' }),
+  S('floor', 'Upper Floor', 'Building', { stick: 6, fiber: 4 }, 120, 'floor', { tiered: 1, u: 1, d: 'Snaps above a foundation, on top of the walls.' }),
+  S('wall', 'Wall', 'Building', { stick: 6, fiber: 4 }, 120, 'wall', { tiered: 1, u: 1, d: 'Snaps to foundation edges and to other walls.' }),
+  S('doorway', 'Doorway', 'Building', { stick: 5, fiber: 3 }, 120, 'wall', { tiered: 1, u: 0.8, d: 'A wall with a door frame.' }),
+  S('window', 'Window Wall', 'Building', { stick: 5, fiber: 3 }, 120, 'wall', { tiered: 1, u: 0.8, d: 'A wall with a shooting window.' }),
+  S('door', 'Door', 'Building', { stick: 4, fiber: 2 }, 120, 'door', { tiered: 1, u: 0.5, hpk: 0.6, tiers: [0, 1, 3], d: 'Fits a doorway. Enemies must break it down.' }),
+  S('stairs', 'Stairs', 'Building', { stick: 8, fiber: 2 }, 120, 'stairs', { tiered: 1, u: 1, d: 'Climb one storey.' }),
+  S('roof', 'Roof', 'Building', { stick: 6, fiber: 6 }, 120, 'floor', { tiered: 1, u: 0.8, d: 'A pitched cover. Snaps above a foundation.' }),
+  S('ladder', 'Ladder', 'Building', { stick: 6, rope: 2 }, 150, 'ladder', { d: 'Leans on any wall, or stacks on another ladder. Walk into it to climb; enemies cannot.' }),
+  S('highwall', 'High Wall', 'Defense', { stick: 12, fiber: 6 }, 120, 'wall', { tiered: 1, u: 2, hpk: 1.6, d: 'A perimeter wall two storeys tall. Too high to jump, so bring a ladder.' }),
   S('spikes', 'Spike Barricade', 'Defense', { stick: 10, log: 1 }, 200, 'free', { d: 'Hurts anything that pushes into it.' }),
   S('gate', 'Log Gate', 'Defense', { log: 8, rope: 2, metal: 2 }, 700, 'wall', { tech: 's_gate', d: 'A wide gate you can open and close.' }),
   S('tower', 'Watchtower', 'Defense', { log: 18, rope: 4 }, 900, 'free', { tech: 's_tower', d: 'A raised platform with stairs. See them coming.' }),
   S('lamp', 'Lantern Post', 'Defense', { log: 1, metal: 2, cloth: 1 }, 120, 'free', { tech: 's_lamp', d: 'Lights your camp at night.' }),
-  S('stone_wall', 'Stone Wall', 'Building', { stone: 30, log: 1 }, 1400, 'wall', { tech: 's_stone_wall', d: 'Mortared rock. Three times as tough as logs.' }),
-  S('metal_wall', 'Steel Wall', 'Building', { metal: 12, log: 1 }, 3000, 'wall', { tech: 's_metal_wall', d: 'Plate steel. Almost nothing gets through.' }),
 ];
+// Building tiers: everything is raised in thatch, then upgraded with a hammer. per = material for a standard wall.
+export const TIERS = [{ n: 'Thatch', hp: 120 }, { n: 'Wood', hp: 500, item: 'log', per: 5 }, { n: 'Stone', hp: 1400, item: 'stone', per: 24, tech: 's_stone_wall' }, { n: 'Metal', hp: 3000, item: 'metal', per: 8, tech: 's_metal_wall' }];
 export const STRUCT_BY_ID = Object.fromEntries(STRUCTS.map((s) => [s.id, s]));
 
 // Loot tables by container tier: [item, min, max, weight]

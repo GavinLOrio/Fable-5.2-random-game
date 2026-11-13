@@ -42,7 +42,7 @@ You wash ashore on a 2 km wide island: mostly pine forest, with the abandoned to
 
 - Survive: health, food, water and stamina; day and night; weather on a random timer (clear, overcast, rain, thunderstorm, fog, snow up high) that changes visibility, enemy sight, cold, rain collectors and crops.
 - Gather and craft: fell trees, mine rock and ore, pick plants, hunt, search crates and wrecks.
-- Build: pick a blueprint, place its ghost, then carry materials to it piece by piece. Foundations, floors, walls, doors, stairs and roofs snap together; enemies attack what you build.
+- Build: pick a blueprint, place its ghost, then carry materials to it piece by piece. Foundations, floors, walls, doors, stairs and roofs snap together and go up in thatch; a building hammer upgrades each piece to wood, stone and metal. High walls and climbable ladders for the perimeter; enemies attack what you build.
 - Research: three research tables, each dearer than the last, unlock blueprints for scrap: iron tools and black-powder guns, war-era firearms, then modern weapons and armor.
 - Farm: garden plots on open ground and planter boxes inside your base, seven crops, watering and rain.
 - Fight: wolves, boars, bears, scavengers, riflemen and a warlord in Bunker 7.

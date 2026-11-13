@@ -200,6 +200,7 @@ const V = {
     arm(g, 0.0, -0.2, 0.06, 1.2, 0); g.userData.melee = 1;
   },
   iron_axe(g) { V.stone_axe(g, true); },
+  hammer(g) { cz(g, MT.wood, 0, 0.1, -0.1, 0.02, 0.6, 0, 0, 10, 0.017); bx(g, MT.stone, 0, 0.37, -0.1, 0.075, 0.085, 0.2, 0, 0, 0, 0.02); lash(g, 0.315, -0.1); arm(g, 0.0, -0.2, 0.06, 1.2, 0); g.userData.melee = 1; },
   stone_pick(g, metal) {
     cz(g, MT.wood, 0, 0.1, -0.1, 0.02, 0.64, 0, 0, 10, 0.017);
     if (metal) { cz(g, MT.steel, 0, 0.385, -0.1, 0.012, 0.25, PI / 2 + 0.2, 0, 8, 0.024).position.z = -0.21; cz(g, MT.steel, 0, 0.385, 0.01, 0.024, 0.2, PI / 2 - 0.2, 0, 8, 0.012); bx(g, MT.gun, 0, 0.39, -0.1, 0.045, 0.06, 0.06); }

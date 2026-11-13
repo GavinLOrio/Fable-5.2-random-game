@@ -6,7 +6,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { ITEMS, RECIPES, TECH_BY_ID, TECH_GRANTS, STRUCT_BY_ID, LOOT, CROPS, WEATHER } from './data.js';
+import { ITEMS, RECIPES, TECH_BY_ID, TECH_GRANTS, STRUCT_BY_ID, LOOT, CROPS, WEATHER, TIERS } from './data.js';
 import { createWorld, HALF, LAKE } from './world.js';
 import { createBuild } from './build.js';
 import { createMobs, rollLoot } from './entities.js';
@@ -311,7 +311,9 @@ function movePlayer(dt) {
   const h0 = W.H(P.x, P.z), h1 = W.H(pp.x, pp.z), run = Math.hypot(pp.x - P.x, pp.z - P.z); if (run > 1e-4 && (h1 - h0) / run > 1.25 && P.y < h0 + 0.3) { pp.x = P.x; pp.z = P.z; }
   const g1 = W.resolve(pp, 0.34, P.y, P.crouch ? 1.2 : 1.75); W.collideTrees(pp, 0.34); P.x = pp.x; P.z = pp.z;
   const ground = Math.max(W.H(P.x, P.z), g1);
-  P.vy -= 20 * dt; P.y += P.vy * dt;
+  const lad = !swim && Bd.ladderAt(P.x, P.y, P.z);
+  if (lad) { P.vy = P.crouch ? -5 : input.my > 0.2 ? 3.4 : input.my < -0.2 ? -3.4 : 0; if (input.hit('jump')) P.vy = 5; P.ground = false; } else P.vy -= 20 * dt;
+  P.y += P.vy * dt;
   if (swim || (P.y < wl - 1.2 && W.inWater(P.x, P.z))) { if (P.y < wl - 1.25) { P.y = Math.max(ground, lerp(P.y, wl - 1.25, Math.min(1, dt * 6))); P.vy = Math.max(P.vy, -1); if (P.y <= wl - 1.2 && P.y > ground) { P.vy = 0; } } P.stam -= 2.5 * dt; P.stamWait = 0.5; if (P.stam <= 0) hurt(4 * dt, null, true); }
   if (P.y <= ground) { if (P.vy < -13) hurt((-P.vy - 13) * 5, null); P.y = ground; P.vy = 0; P.ground = true; }
   else if (P.ground && P.vy <= 0 && P.y - ground < 0.45) { P.y = ground; P.vy = 0; }
@@ -367,8 +369,17 @@ function promptFor(t) {
   if (t.kind === 'struct') {
     const s = t.s, n = s.def.n;
     if (!s.done) return K('E', `Add material to ${n}`) + `<span class="need">${Bd.needs(s).map(([k, h, need]) => `<span class="${h < need && !G.count(k) ? 'lack' : ''}">${ITEMS[k].n} <b>${h}/${need}</b></span>`).join(' · ')}</span><span class="need">Hold X to cancel the blueprint</span>`;
-    const hp = s.hp < s.def.hp ? `<span class="need">Condition ${Math.round(s.hp / s.def.hp * 100)}%</span>` : '';
-    if (s.type === 'chest') return K('E', 'Open chest') + hp; if (s.type.startsWith('research')) return K('E', `Use ${n}`) + hp; if (s.type === 'door' || s.type === 'gate') return K('E', s.open ? 'Close' : 'Open') + hp;
+    const mx = Bd.maxHp(s), hp = s.hp < mx ? `<span class="need">Condition ${Math.round(s.hp / mx * 100)}%</span>` : '';
+    const costLine = (c) => `<span class="need">${Object.entries(c).map(([k, need]) => `<span class="${G.count(k) < need ? 'lack' : ''}">${ITEMS[k].n} <b>${G.count(k)}/${need}</b></span>`).join(' · ')}</span>`;
+    if (s.def.tiered && held() === 'hammer') {
+      if (s.hp < mx) return K('E', `Repair ${TIERS[s.tier].n.toLowerCase()} ${n.toLowerCase()}`) + costLine(Bd.repairCost(s)) + hp;
+      const up = Bd.upgradeInfo(s); if (!up) return `${TIERS[s.tier].n} ${n.toLowerCase()}<span class="need">Fully upgraded</span>`;
+      if (up.tech && !G.tech.has(up.tech)) return `${TIERS[s.tier].n} ${n.toLowerCase()}<span class="need lack">Research ${TECH_BY_ID[up.tech].n} to upgrade to ${up.n.toLowerCase()}</span>`;
+      return K('E', `Upgrade to ${up.n.toLowerCase()}`) + costLine(up.cost);
+    }
+    if (s.type === 'ladder') return `Ladder<span class="need">Walk into it to climb, back off to climb down</span>`;
+    const tierHint = s.def.tiered ? `<span class="need">${TIERS[s.tier].n}${Bd.upgradeInfo(s) ? ' · hold a hammer to upgrade' : ''}</span>` : '';
+    if (s.type === 'chest') return K('E', 'Open chest') + hp; if (s.type.startsWith('research')) return K('E', `Use ${n}`) + hp; if (s.type === 'door' || s.type === 'gate') return K('E', s.open ? 'Close' : 'Open') + tierHint + hp;
     if (s.type === 'leanto') return K('E', 'Sleep until morning') + '<span class="need">Sets your respawn point</span>'; if (s.type === 'campfire' || s.type === 'furnace') return K('E', s.type === 'campfire' ? 'Cook and burn' : 'Smelt') + hp;
     if (s.type === 'collector') return s.water > 0 ? K('E', `Drink rainwater`) + `<span class="need">${s.water} of 6 measures</span>` : `Rain collector<span class="need">Empty. Fills when it rains.</span>`;
     if (s.type === 'plot' || s.type === 'planter') {
@@ -376,7 +387,7 @@ function promptFor(t) {
       const c = CROPS[s.crop.id]; if (s.crop.g >= 1) return K('E', `Harvest ${c.n}`);
       return (s.crop.wet <= 0 && G.count('water_bottle') ? K('E', `Water the ${c.n.toLowerCase()}`) : c.n) + `<span class="need">${Math.floor(s.crop.g * 100)}% grown · ${s.crop.wet > 0 ? 'soil is moist' : 'soil is dry, growing slowly'}</span>`;
     }
-    return n + hp;
+    return n + tierHint + hp;
   }
   if (t.kind === 'corpse') return K('E', `Search ${t.m.def.n.toLowerCase()}`);
   if (t.kind === 'pack') return K('E', 'Recover your pack');
@@ -392,6 +403,13 @@ function useTarget(t, first) {
     const s = t.s;
     if (!s.done) { if (useT > 0) return; useT = 0.13; const k = Bd.addOne(s, (id) => G.count(id) > 0, (id) => G.take(id)); if (k) { G.sfx(s.done ? 'done' : 'build'); if (s.done) { U.toast(`${s.def.n} built`, 'big'); saveNow(); } dirty = true; } else if (first) { G.sfx('deny'); U.toast('You are not carrying what it needs', 'bad'); } return; }
     if (!first) return;
+    if (s.def.tiered && held() === 'hammer') {
+      const mx = Bd.maxHp(s), pay = (c) => { for (const k in c) if (G.count(k) < c[k]) return false; for (const k in c) G.take(k, c[k]); return true; };
+      if (s.hp < mx) { if (pay(Bd.repairCost(s))) { s.hp = Math.min(mx, s.hp + mx * 0.34); G.sfx('build'); } else { G.sfx('deny'); U.toast('Not enough material to repair', 'bad'); } return; }
+      const up = Bd.upgradeInfo(s); if (!up) return; if (up.tech && !G.tech.has(up.tech)) { G.sfx('deny'); U.toast(`Research ${TECH_BY_ID[up.tech].n} first`, 'bad'); return; }
+      if (pay(up.cost)) { Bd.upgrade(s, up.tier); G.sfx('done'); burst(s.x, s.y + 1.2, s.z, 0xc9a26a, 14, 3, 9, 0.6); swingT = swingDur = 0.4; swingHit = true; dirty = true; } else { G.sfx('deny'); U.toast(`Not enough ${ITEMS[Object.keys(up.cost)[0]].n.toLowerCase()}`, 'bad'); }
+      return;
+    }
     if (s.type === 'chest') { G.chest = s; input.unlock(); U.show('chest'); }
     else if (s.type.startsWith('research')) { input.unlock(); U.show('research'); }
     else if (s.type === 'campfire' || s.type === 'furnace') { input.unlock(); U.show('craft'); }
@@ -521,7 +539,7 @@ function frame(now) {
     // interaction
     targetT -= dt; if (targetT <= 0) { targetT = 0.1; target = Bd.placing ? null : findTarget(); U.prompt(!input.touch && !input.locked && !input.dragLook ? '<kbd>CLICK</kbd>Click the game to capture the mouse' : promptFor(target)); }
     useT -= dt; if (input.hit('use')) useTarget(target, true); else if (input.use && target && target.kind === 'struct' && !target.s.done) useTarget(target, false);
-    if (input.hit('dismantle')) dismT = 0.001; if (dismT > 0 && target && target.kind === 'struct') { dismT += dt; if (dismT > 0.7) { const s = target.s; for (const k in s.def.cost) { const n = s.done ? Math.floor(s.def.cost[k] * 0.5) : s.prog[k] || 0; if (n) G.give(k, n); } if (s.inv) giveAll(s.inv); Bd.remove(s); G.sfx('thud'); dismT = 0; target = null; dirty = true; } } else dismT = 0;
+    if (input.hit('dismantle')) dismT = 0.001; if (dismT > 0 && target && target.kind === 'struct') { dismT += dt; if (dismT > 0.7) { const s = target.s; const sp = Bd.spent(s); for (const k in sp) { const n = s.done ? Math.floor(sp[k] * 0.5) : s.prog[k] || 0; if (n) G.give(k, n); } if (s.inv) giveAll(s.inv); Bd.remove(s); G.sfx('thud'); dismT = 0; target = null; dirty = true; } } else dismT = 0;
     if (dismT > 0 && !inputHeldX()) dismT = 0;
     survival(dt); growCrops(dt); M.update(dt); arrowsUpdate(dt); poseVM(dt, w);
     if (input.hit('pack')) { input.unlock(); U.show('pack'); } else if (input.hit('build')) { if (Bd.placing) Bd.stop(); else { input.unlock(); U.show('build'); } } else if (input.hit('map')) { input.unlock(); U.show('map'); } else if (input.hit('menu')) { input.unlock(); U.show('system'); }

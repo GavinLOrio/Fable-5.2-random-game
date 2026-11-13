@@ -1,7 +1,7 @@
 // Hollowpine building: place a ghost blueprint, then carry materials to it piece by piece until it stands.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { STRUCT_BY_ID, CROPS } from './data.js';
+import { STRUCT_BY_ID, CROPS, TIERS } from './data.js';
 
 const M = 3, WH = 2.7, PI = Math.PI;
 const LOG = [0x7a5a3a, 0x6b4e32, 0x80603c], PLANK = 0x8a6d4a, STONE = 0x8d9093, STEEL = 0x6b7178;
@@ -12,20 +12,58 @@ const log = (len, r, x, y, z, axis = 'x', c = null, tip = false) => { const g = 
 const box = (sx, sy, sz, x, y, z, c, ry = 0, rx = 0, rz = 0) => { const g = new THREE.BoxGeometry(sx, sy, sz); if (rz) g.rotateZ(rz); if (rx) g.rotateX(rx); if (ry) g.rotateY(ry); g.translate(x, y, z); return tint(g, c); };
 const rock = (r, x, y, z, c = STONE) => { const g = new THREE.DodecahedronGeometry(r, 0); g.rotateY(x * 7 + z * 3); g.translate(x, y, z); return tint(g, c); };
 
-// Part lists. Origin: bottom centre; walls run along local x.
+const STRAW = [0xb89a50, 0xa8873f, 0xc4a85a], POLE = 0x6b5236, ROCKS = [0x8d9093, 0x7f8386, 0x979a9c], PLATE = [0x6b7178, 0x747b82], FRAME = 0x3d4246;
+// A wall panel in one of four materials, with an optional opening.
+function fillWall(t, Wd, H, hole) {
+  const a = [], rowH = [0.3, 0.3, 0.45, 0.9][t], rows = Math.round(H / rowH);
+  for (let r = 0; r < rows; r++) {
+    const y0 = r * rowH, mid = y0 + rowH / 2, spans = hole && mid > hole.y0 && mid < hole.y1 ? [[-Wd / 2, hole.x0], [hole.x1, Wd / 2]] : [[-Wd / 2, Wd / 2]];
+    for (const [x0, x1] of spans) {
+      const len = x1 - x0, cx = (x0 + x1) / 2;
+      if (t === 0) a.push(box(len, rowH * 0.9, 0.13 + (r % 2) * 0.02, cx, mid, 0, STRAW[r % 3]));
+      else if (t === 1) a.push(log(len, 0.15, cx, y0 + 0.15, 0));
+      else if (t === 2) { const n = Math.max(1, Math.ceil(len / 0.8)) + (r % 2 && len > 2 ? 1 : 0); for (let i = 0; i < n; i++) a.push(box(len / n - 0.03, rowH - 0.03, 0.4 + ((i + r) % 3) * 0.03, x0 + (i + 0.5) * len / n, mid, 0, ROCKS[(i + r) % 3])); }
+      else { const n = Math.max(1, Math.ceil(len / 1.5)); for (let i = 0; i < n; i++) a.push(box(len / n - 0.05, rowH - 0.05, 0.08, x0 + (i + 0.5) * len / n, mid, 0, PLATE[(i + r) % 2])); }
+    }
+  }
+  if (t === 0) { for (const x of [-Wd / 2 + 0.06, Wd / 2 - 0.06]) a.push(box(0.1, H, 0.2, x, H / 2, 0, POLE)); if (!hole) a.push(box(0.09, H, 0.2, 0, H / 2, 0, POLE)); a.push(box(Wd, 0.08, 0.2, 0, H - 0.04, 0, POLE)); }
+  if (t === 3) { a.push(box(Wd, 0.12, 0.2, 0, 0.06, 0, FRAME), box(Wd, 0.12, 0.2, 0, H - 0.06, 0, FRAME)); for (const x of [-Wd / 2 + 0.06, Wd / 2 - 0.06]) a.push(box(0.12, H, 0.2, x, H / 2, 0, FRAME)); if (!hole) a.push(box(0.1, H, 0.18, 0, H / 2, 0, FRAME)); }
+  if (hole) { const fc = [POLE, PLANK, 0x6f7376, FRAME][t]; for (const x of [hole.x0, hole.x1]) a.push(box(0.1, hole.y1 - hole.y0, 0.34, x, (hole.y0 + hole.y1) / 2, 0, fc)); a.push(box(hole.x1 - hole.x0 + 0.1, 0.08, 0.34, 0, hole.y1, 0, fc)); if (hole.y0 > 0) a.push(box(hole.x1 - hole.x0 + 0.1, 0.08, 0.36, 0, hole.y0, 0, fc)); }
+  return a;
+}
+function deck(t, posts) {
+  const a = [];
+  if (posts) for (const sx of [-1.3, 1.3]) for (const sz of [-1.3, 1.3]) a.push(t === 2 ? box(0.42, 3.4, 0.42, sx, -1.9, sz, ROCKS[1]) : t === 3 ? box(0.16, 3.4, 0.16, sx, -1.9, sz, FRAME) : log(3.4, t ? 0.17 : 0.1, sx, -1.9, sz, 'y', t ? null : POLE));
+  if (t === 0) { for (const s of [-1.3, 0, 1.3]) a.push(log(M, 0.07, 0, -0.2, s, 'x', POLE)); for (let i = 0; i < 6; i++) a.push(box(0.49, 0.12, M, -1.25 + i * 0.5, -0.06, 0, STRAW[i % 3])); }
+  else if (t === 1) { for (const s of [-1.3, 1.3]) a.push(log(M, 0.13, 0, -0.42, s, 'x')); for (let i = 0; i < 10; i++) a.push(log(M, 0.15, -1.35 + i * 0.3, -0.15, 0, 'z')); }
+  else if (t === 2) { for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) a.push(box(1.47, 0.3, 1.47, -0.75 + i * 1.5, -0.15, -0.75 + j * 1.5, ROCKS[(i + j) % 3])); }
+  else { for (const s of [-1.3, 1.3]) a.push(box(M, 0.2, 0.16, 0, -0.2, s, FRAME)); for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) a.push(box(1.47, 0.1, 1.47, -0.75 + i * 1.5, -0.05, -0.75 + j * 1.5, PLATE[(i + j) % 2])); }
+  return a;
+}
+// Part lists. Origin: bottom centre; walls run along local x. Building pieces take a tier: 0 thatch, 1 wood, 2 stone, 3 metal.
 const MODELS = {
-  wall: () => [...Array(9)].map((_, i) => log(M, 0.15, 0, 0.15 + i * 0.3, 0)),
-  doorway: () => { const a = []; for (let i = 0; i < 7; i++) for (const s of [-1, 1]) a.push(log(0.95, 0.15, s * 1.025, 0.15 + i * 0.3, 0)); a.push(log(M, 0.15, 0, 2.25, 0), log(M, 0.15, 0, 2.55, 0)); for (const s of [-1, 1]) a.push(box(0.12, 2.1, 0.34, s * 0.55, 1.05, 0, PLANK)); return a; },
-  window: () => { const a = []; for (let i = 0; i < 9; i++) { if (i >= 3 && i <= 5) for (const s of [-1, 1]) a.push(log(0.9, 0.15, s * 1.05, 0.15 + i * 0.3, 0)); else a.push(log(M, 0.15, 0, 0.15 + i * 0.3, 0)); } return a; },
-  palisade: () => [...Array(10)].map((_, i) => log(3.2 + (i % 3) * 0.14, 0.15, -1.35 + i * 0.3, 1.6 + (i % 3) * 0.07, 0, 'y', null, false)).concat([...Array(10)].map((_, i) => log(0.4, 0.15, -1.35 + i * 0.3, 3.4 + (i % 3) * 0.14, 0, 'y', 0x8a6d4a, true))),
-  stone_wall: () => { const a = []; for (let r = 0; r < 6; r++) for (let i = 0; i < 4; i++) { const w = 0.75, off = (r % 2) * 0.375; a.push(box(w - 0.03, 0.43, 0.42 + ((i + r) % 3) * 0.03, -1.5 + w / 2 + i * w + off - (off && i === 3 ? 0.375 : 0), 0.225 + r * 0.45, 0, [0x8d9093, 0x7f8386, 0x979a9c][(i + r) % 3])); } return a; },
-  metal_wall: () => { const a = [box(M, 0.12, 0.2, 0, 0.06, 0, 0x3d4246), box(M, 0.12, 0.2, 0, WH - 0.06, 0, 0x3d4246)]; for (const s of [-1.44, 0, 1.44]) a.push(box(0.12, WH, 0.2, s, WH / 2, 0, 0x3d4246)); for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) a.push(box(1.36, 0.82, 0.08, -0.72 + i * 1.44, 0.53 + j * 0.84, 0, j % 2 ? STEEL : 0x747b82)); return a; },
+  wall: (t) => fillWall(t, M, WH, null),
+  doorway: (t) => fillWall(t, M, WH, { x0: -0.55, x1: 0.55, y0: 0, y1: 2.1 }),
+  window: (t) => fillWall(t, M, WH, { x0: -0.6, x1: 0.6, y0: 0.9, y1: 1.8 }),
+  highwall: (t) => {
+    if (t === 1) return [...Array(10)].map((_, i) => log(5.2 + (i % 3) * 0.16, 0.15, -1.35 + i * 0.3, 2.6 + (i % 3) * 0.08, 0, 'y')).concat([...Array(10)].map((_, i) => log(0.45, 0.15, -1.35 + i * 0.3, 5.42 + (i % 3) * 0.16, 0, 'y', 0x8a6d4a, true)), [box(M, 0.14, 0.12, 0, 1.6, 0.17, 0x5a4630), box(M, 0.14, 0.12, 0, 4.2, 0.17, 0x5a4630)]);
+    const a = fillWall(t, M, 5.4, null);
+    if (t === 0) for (let i = 0; i < 10; i++) a.push(log(0.5, 0.05, -1.35 + i * 0.3, 5.6, 0, 'y', POLE, true));
+    if (t === 2) for (const x of [-1.1, 0, 1.1]) a.push(box(0.62, 0.5, 0.46, x, 5.65, 0, ROCKS[1]));
+    if (t === 3) for (let i = 0; i < 8; i++) a.push(log(0.4, 0.035, -1.3 + i * 0.37, 5.58, 0, 'y', 0x8f979e, true));
+    return a;
+  },
+  foundation: (t) => deck(t, true), floor: (t) => deck(t, false),
+  stairs: (t) => { const a = [], sc = [POLE, 0x5a4630, 0x6f7376, FRAME][t], c1 = [STRAW[0], PLANK, ROCKS[0], PLATE[0]][t], c2 = [STRAW[1], 0x7d6142, ROCKS[1], PLATE[1]][t]; for (const s of [-0.75, 0.75]) a.push(box(t === 2 ? 0.2 : 0.1, 0.3, 4.1, s, 1.25, 0, sc, 0, -0.733)); for (let i = 0; i < 9; i++) a.push(box(1.6, t === 2 ? 0.2 : 0.08, 0.36, 0, (t === 2 ? 0.2 : 0.26) + i * 0.3, 1.5 - (i + 0.5) / 3, i % 2 ? c1 : c2)); return a; },
+  roof: (t) => {
+    const a = [], p = 0.42, n = t === 1 ? 9 : 4; for (let i = 0; i < n; i++) { const z = 1.6 - i * (3.2 / (n - 1)); a.push(t === 3 ? box(M + 0.3, 0.1, 0.1, 0, 0.1 + (1.6 - z) * Math.tan(p), z, FRAME) : log(M + 0.3, t === 1 ? 0.13 : 0.07, 0, 0.1 + (1.6 - z) * Math.tan(p), z, 'x', t ? null : POLE)); }
+    if (t === 2) for (let i = 0; i < 7; i++) { const z = 1.55 - i * 0.52; a.push(box(M + 0.4, 0.06, 0.66, 0, 0.3 + (1.6 - z) * Math.tan(p), z, i % 2 ? 0x4b5258 : 0x596168, 0, -p - 0.1)); }
+    else for (let i = 0; i < 6; i++) a.push(box(0.5, t === 0 ? 0.12 : 0.05, 3.7, -1.25 + i * 0.5, t === 1 ? 0.95 : 0.9, -0.1, t === 0 ? STRAW[i % 3] : t === 1 ? 0x9a8a5a : PLATE[i % 2], 0, -p));
+    return a;
+  },
+  door: (t) => { const a = []; if (t === 3) { a.push(box(1.0, 2.06, 0.06, 0, 1.04, 0, PLATE[0])); for (const y of [0.3, 1.04, 1.78]) a.push(box(1.0, 0.1, 0.09, 0, y, 0, FRAME)); a.push(box(0.08, 0.2, 0.12, 0.38, 1.0, 0.03, 0x8f979e)); } else { for (let i = 0; i < 4; i++) a.push(box(0.255, 2.06, t ? 0.07 : 0.05, -0.39 + i * 0.26, 1.04, 0, t ? (i % 2 ? PLANK : 0x7d6142) : STRAW[i % 3])); a.push(box(1.0, 0.1, 0.1, 0, 0.5, 0.05, t ? 0x5a4630 : POLE), box(1.0, 0.1, 0.1, 0, 1.6, 0.05, t ? 0x5a4630 : POLE)); } return a; },
+  ladder: () => { const a = []; for (const x of [-0.3, 0.3]) a.push(box(0.07, 2.85, 0.07, x, 1.42, 0, 0x6b4e32)); for (let i = 0; i < 8; i++) a.push(box(0.6, 0.05, 0.06, 0, 0.25 + i * 0.34, 0, 0x8a6d4a)); return a; },
   gate: () => { const a = []; for (let i = 0; i < 9; i++) a.push(box(0.29, 2.5, 0.09, -1.2 + i * 0.3, 1.3, 0, i % 2 ? PLANK : 0x7d6142)); a.push(box(2.7, 0.14, 0.14, 0, 0.6, 0.06, 0x5a4630), box(2.7, 0.14, 0.14, 0, 2.0, 0.06, 0x5a4630), box(0.3, 0.1, 0.16, 1.1, 1.3, 0.08, STEEL)); return a; },
-  door: () => { const a = []; for (let i = 0; i < 4; i++) a.push(box(0.255, 2.06, 0.07, -0.39 + i * 0.26, 1.04, 0, i % 2 ? PLANK : 0x7d6142)); a.push(box(1.0, 0.1, 0.1, 0, 0.5, 0.05, 0x5a4630), box(1.0, 0.1, 0.1, 0, 1.6, 0.05, 0x5a4630)); return a; },
-  foundation: () => { const a = []; for (const sx of [-1.3, 1.3]) for (const sz of [-1.3, 1.3]) a.push(log(3.4, 0.17, sx, -1.9, sz, 'y')); for (const s of [-1.3, 1.3]) a.push(log(M, 0.13, 0, -0.42, s, 'x')); for (let i = 0; i < 10; i++) a.push(log(M, 0.15, -1.35 + i * 0.3, -0.15, 0, 'z')); return a; },
-  floor: () => { const a = []; for (const s of [-1.3, 1.3]) a.push(log(M, 0.11, 0, -0.38, s, 'x')); for (let i = 0; i < 10; i++) a.push(log(M, 0.15, -1.35 + i * 0.3, -0.15, 0, 'z')); return a; },
-  stairs: () => { const a = []; for (const s of [-0.75, 0.75]) a.push(box(0.1, 0.3, 4.1, s, 1.25, 0, 0x5a4630, 0, -0.733)); for (let i = 0; i < 9; i++) a.push(box(1.6, 0.08, 0.36, 0, 0.26 + i * 0.3, 1.5 - (i + 0.5) / 3, i % 2 ? PLANK : 0x7d6142)); return a; },
-  roof: () => { const a = [], p = 0.42; for (let i = 0; i < 9; i++) { const z = 1.6 - i * 0.4; a.push(log(M + 0.3, 0.13, 0, 0.1 + (1.6 - z) * Math.tan(p), z, 'x')); } for (let i = 0; i < 6; i++) a.push(box(0.5, 0.05, 3.7, -1.25 + i * 0.5, 0.95, -0.1, 0x9a8a5a, 0, -p)); return a; },
   campfire: () => { const a = []; for (let i = 0; i < 8; i++) a.push(rock(0.16, Math.cos(i * 0.785) * 0.55, 0.08, Math.sin(i * 0.785) * 0.55)); for (let i = 0; i < 4; i++) a.push(box(0.07, 0.7, 0.07, Math.cos(i * 1.57) * 0.16, 0.3, Math.sin(i * 1.57) * 0.16, 0x4a3524, i * 1.57, 0, 0.5)); return a; },
   leanto: () => { const a = [log(1.9, 0.07, -1.2, 0.95, 0.7, 'y'), log(1.9, 0.07, 1.2, 0.95, 0.7, 'y'), log(2.8, 0.07, 0, 1.85, 0.7, 'x')]; for (let i = 0; i < 8; i++) a.push(box(0.3, 0.08, 2.7, -1.15 + i * 0.33, 0.95, -0.35, i % 2 ? 0x6b4e32 : 0x7a5a3a, 0, 0.75)); a.push(box(2.0, 0.1, 1.0, 0, 0.06, -0.2, 0x5d7a3c)); return a; },
   chest: () => [box(1.1, 0.5, 0.6, 0, 0.25, 0, PLANK), box(1.14, 0.14, 0.64, 0, 0.57, 0, 0x6b4e32), box(0.12, 0.16, 0.04, 0, 0.45, 0.31, STEEL), box(0.06, 0.66, 0.66, -0.4, 0.33, 0, 0x3d4246), box(0.06, 0.66, 0.66, 0.4, 0.33, 0, 0x3d4246)],
@@ -42,7 +80,7 @@ const MODELS = {
 };
 // Colliders: [x, y0, z, sx, sy, sz]
 const COLS = {
-  wall: [[0, 0, 0, M, WH, 0.3]], palisade: [[0, 0, 0, M, 3.5, 0.3]], stone_wall: [[0, 0, 0, M, WH, 0.45]], metal_wall: [[0, 0, 0, M, WH, 0.2]], gate: [[0, 0, 0, 2.7, 2.6, 0.2]], door: [[0, 0, 0, 1.0, 2.1, 0.12]],
+  wall: [[0, 0, 0, M, WH, 0.3]], highwall: [[0, 0, 0, M, 5.4, 0.36]], ladder: [], gate: [[0, 0, 0, 2.7, 2.6, 0.2]], door: [[0, 0, 0, 1.0, 2.1, 0.12]],
   doorway: [[-1.025, 0, 0, 0.95, WH, 0.3], [1.025, 0, 0, 0.95, WH, 0.3], [0, 2.1, 0, 1.1, 0.6, 0.3]],
   window: [[0, 0, 0, M, 0.9, 0.3], [0, 1.8, 0, M, 0.9, 0.3], [-1.05, 0.9, 0, 0.9, 0.9, 0.3], [1.05, 0.9, 0, 0.9, 0.9, 0.3]],
   foundation: [[0, -0.3, 0, M, 0.3, M]], floor: [[0, -0.3, 0, M, 0.3, M]], roof: [[0, 0.6, 0, M, 0.25, M]],
@@ -51,7 +89,7 @@ const COLS = {
   plot: [], planter: [[0, 0, 0, 1.5, 0.5, 0.8]], research1: [[0, 0, 0, 2.0, 0.92, 0.9]], research2: [[0, 0, 0, 2.2, 0.96, 1.0]], research3: [[0, 0, 0, 2.4, 0.96, 1.0]], lamp: [[0, 0, 0, 0.2, 2.6, 0.2]],
   tower: [[0, 4.7, 0, 3.6, 0.3, 3.6], [0, 5.0, -1.7, 3.6, 1.1, 0.14], [-1.7, 5.0, 0, 0.14, 1.1, 3.6], [1.7, 5.0, 0, 0.14, 1.1, 3.6], [-0.7, 5.0, 1.7, 2.2, 1.1, 0.14], ...[...Array(20)].map((_, i) => [1.1, i * 0.25, 9.0 - (i + 0.5) * 0.36, 1.2, 0.25, 0.38])],
 };
-const CENTER = { found: 0, floor: 0, wall: 1.35, door: 1.0, stairs: 1.35, free: 0.5 };
+const CENTER = { found: 0, floor: 0, wall: 1.35, door: 1.0, stairs: 1.35, free: 0.5, ladder: 1.35 };
 const LIGHT = { campfire: [0xff9a40, 1.6, 0.6], lamp: [0xffd27a, 1.3, 2.3], research3: [0x70e0d0, 0.5, 1.4], furnace: [0xff7030, 0.8, 0.6] };
 const isPlat = (t) => t === 'foundation' || t === 'floor';
 
@@ -62,9 +100,17 @@ export function createBuild(scene, W) {
   const badMat = new THREE.MeshBasicMaterial({ color: 0xff5040, transparent: true, opacity: 0.35, depthWrite: false });
   const flameMat = new THREE.MeshBasicMaterial({ color: 0xffa030 }); flameMat.color.setRGB(7, 2.6, 0.5);
   const geoCache = {};
-  const partsOf = (type) => { if (!geoCache[type]) { li = 0; geoCache[type] = MODELS[type](); } return geoCache[type]; };
+  const partsOf = (type, tier = 0) => { const k = type + tier; if (!geoCache[k]) { li = 0; geoCache[k] = MODELS[type](tier); } return geoCache[k]; };
   const mergedCache = {};
-  const mergedOf = (type) => mergedCache[type] || (mergedCache[type] = mergeGeometries(partsOf(type)));
+  const mergedOf = (type, tier = 0) => mergedCache[type + tier] || (mergedCache[type + tier] = mergeGeometries(partsOf(type, tier)));
+  Bd.maxHp = (s) => (s.def.tiered ? Math.round(TIERS[s.tier || 0].hp * (s.def.hpk || 1)) : s.def.hp);
+  const tierCost = (def, t) => ({ [TIERS[t].item]: Math.max(1, Math.round(TIERS[t].per * def.u)) });
+  // what the next upgrade is and what it costs
+  Bd.upgradeInfo = (s) => { if (!s.def.tiered || !s.done) return null; const list = s.def.tiers || [0, 1, 2, 3], i = list.indexOf(s.tier || 0), nx = list[i + 1]; if (nx == null) return null; return { tier: nx, n: TIERS[nx].n, tech: TIERS[nx].tech, cost: tierCost(s.def, nx) }; };
+  Bd.upgrade = (s, tier) => { s.tier = tier; s.hp = Bd.maxHp(s); rebuild(s); };
+  Bd.spent = (s) => { const out = { ...s.def.cost }; if (s.def.tiered) for (const t of s.def.tiers || [0, 1, 2, 3]) if (t > 0 && t <= (s.tier || 0)) { const c = tierCost(s.def, t); for (const k in c) out[k] = (out[k] || 0) + c[k]; } return out; };
+  Bd.repairCost = (s) => { const t = s.tier || 0; return t ? { [TIERS[t].item]: Math.max(1, Math.round(TIERS[t].per * s.def.u * 0.25)) } : { stick: 2 }; };
+  Bd.ladderAt = (x, y, z) => { for (const s of Bd.structs) { if (s.type !== 'ladder' || !s.done || y < s.y - 0.3 || y > s.y + 3.0) continue; const dx = x - s.x, dz = z - s.z, cs = Math.cos(s.yaw), sn = Math.sin(s.yaw), lx = dx * cs - dz * sn, lz = dx * sn + dz * cs; if (Math.abs(lx) < 0.55 && Math.abs(lz) < 0.62) return s; } return null; };
   const total = (def) => Object.values(def.cost).reduce((a, b) => a + b, 0);
   const added = (s) => Object.values(s.prog).reduce((a, b) => a + b, 0);
 
@@ -77,7 +123,7 @@ export function createBuild(scene, W) {
     while (s.group.children.length) s.group.remove(s.group.children[0]);
     s.partMeshes = null; s.flame = null;
     if (s.done) {
-      const m = new THREE.Mesh(mergedOf(s.type), solidMat); m.castShadow = m.receiveShadow = true;
+      const m = new THREE.Mesh(mergedOf(s.type, s.tier || 0), solidMat); m.castShadow = m.receiveShadow = true;
       if (s.type === 'door' || s.type === 'gate') { const hw = s.type === 'door' ? 0.5 : 1.35, p = new THREE.Group(); p.position.x = -hw; m.position.x = hw; p.add(m); s.group.add(p); s.pivot = p; p.rotation.y = s.open ? -1.5 : 0; } else s.group.add(m);
       if (s.type === 'campfire' || s.type === 'furnace') { const f = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 6), flameMat); f.position.y = s.type === 'campfire' ? 0.55 : 0.5; if (s.type === 'furnace') f.position.set(Math.cos(1.57) * 0.5, 0.45, Math.sin(1.57) * 0.5); s.group.add(f); s.flame = f; }
     } else {
@@ -105,7 +151,7 @@ export function createBuild(scene, W) {
   function refresh(s) { if (!s.partMeshes) return; const k = Math.floor(s.partMeshes.length * added(s) / total(s.def)); s.partMeshes.forEach((m, i) => { const on = i < k; m.material = on ? solidMat : ghostMat; m.castShadow = on; }); }
 
   Bd.place = (type, x, y, z, yaw, o = {}) => {
-    const def = STRUCT_BY_ID[type], s = { type, def, x, y, z, yaw, done: !!o.done, prog: o.prog || {}, hp: o.hp != null ? o.hp : def.hp, cols: [], group: new THREE.Group(), open: !!o.open, inv: o.inv || (type === 'chest' ? {} : null), crop: o.crop || null, water: o.water != null ? o.water : 1 };
+    const def = STRUCT_BY_ID[type], s = { type, def, x, y, z, yaw, done: !!o.done, prog: o.prog || {}, hp: o.hp != null ? o.hp : def.hp, tier: o.tier || 0, cols: [], group: new THREE.Group(), open: !!o.open, inv: o.inv || (type === 'chest' ? {} : null), crop: o.crop || null, water: o.water != null ? o.water : 1 };
     s.group.position.set(x, y, z); s.group.rotation.y = yaw; scene.add(s.group); rebuild(s); Bd.setCrop(s); setColliders(s, s.done); if (s.done && s.open) for (const c of s.cols) c.off = true;
     Bd.structs.push(s); return s;
   };
@@ -113,7 +159,7 @@ export function createBuild(scene, W) {
   // what a blueprint still needs: [[item, have, need], ...]
   Bd.needs = (s) => Object.entries(s.def.cost).map(([k, n]) => [k, s.prog[k] || 0, n]);
   Bd.addOne = (s, has, take) => {
-    for (const [k, have, need] of Bd.needs(s)) if (have < need && has(k)) { take(k); s.prog[k] = have + 1; refresh(s); if (added(s) >= total(s.def)) { s.done = true; s.hp = s.def.hp; rebuild(s); setColliders(s, true); } return k; }
+    for (const [k, have, need] of Bd.needs(s)) if (have < need && has(k)) { take(k); s.prog[k] = have + 1; refresh(s); if (added(s) >= total(s.def)) { s.done = true; s.hp = Bd.maxHp(s); rebuild(s); setColliders(s, true); } return k; }
     return null;
   };
   Bd.toggle = (s) => { s.open = !s.open; if (s.pivot) s.pivot.rotation.y = s.open ? -1.5 : 0; for (const c of s.cols) c.off = s.open; };
@@ -149,9 +195,12 @@ export function createBuild(scene, W) {
         if (cls === 'wall') for (const [a, b, r] of [[M / 2, 0, PI / 2], [-M / 2, 0, PI / 2], [0, M / 2, 0], [0, -M / 2, 0]]) { const p = loc(a, b); add(p[0], s.y, p[1], s.yaw + r); }
         if (cls === 'stairs') add(s.x, s.y, s.z, s.yaw + k90);
       } else if (sc === 'wall') {
-        if (cls === 'wall') { for (const a of [M, -M]) { const p = loc(a, 0); add(p[0], s.y, p[1], s.yaw); } for (const a of [M / 2, -M / 2]) for (const b of [M / 2, -M / 2]) { const p = loc(a, b); add(p[0], s.y, p[1], s.yaw + PI / 2); } add(s.x, s.y + WH, s.z, s.yaw); }
+        if (cls === 'wall') { for (const a of [M, -M]) { const p = loc(a, 0); add(p[0], s.y, p[1], s.yaw); } for (const a of [M / 2, -M / 2]) for (const b of [M / 2, -M / 2]) { const p = loc(a, b); add(p[0], s.y, p[1], s.yaw + PI / 2); } add(s.x, s.y + (s.type === 'highwall' ? 5.4 : WH), s.z, s.yaw); }
         if (cls === 'floor') for (const b of [M / 2, -M / 2]) { const p = loc(0, b); add(p[0], s.y + WH + (type === 'roof' ? 0 : 0.3), p[1], s.yaw + k90); }
         if (cls === 'door' && s.type === 'doorway') add(s.x, s.y, s.z, s.yaw);
+        if (cls === 'ladder') for (const b of [0.36, -0.36]) { const p = loc(0, b); add(p[0], s.y, p[1], s.yaw); if (s.type === 'highwall') add(p[0], s.y + WH, p[1], s.yaw); }
+      } else if (sc === 'ladder') {
+        if (cls === 'ladder') add(s.x, s.y + WH, s.z, s.yaw);
       }
     }
     let best = null, bd = 1.5; const cyo = CENTER[cls] || 0;
@@ -190,7 +239,8 @@ export function createBuild(scene, W) {
     ctx.putImageData(im, 0, 0); return thumbs[type] = tCv.toDataURL('image/png');
   };
   Bd.update = (t) => { for (const s of Bd.structs) if (s.flame) { const k = 0.85 + Math.sin(t * 13 + s.x) * 0.12 + Math.sin(t * 7.3) * 0.1; s.flame.scale.set(k, 0.8 + k * 0.4, k); } };
-  Bd.save = () => Bd.structs.map((s) => [s.type, +s.x.toFixed(2), +s.y.toFixed(2), +s.z.toFixed(2), +s.yaw.toFixed(3), s.done ? 1 : 0, s.prog, Math.round(s.hp), s.open ? 1 : 0, s.inv, s.crop ? [s.crop.id, +s.crop.g.toFixed(3), +s.crop.wet.toFixed(2)] : 0, s.water]);
-  Bd.load = (arr) => { for (const s of Bd.structs.slice()) Bd.remove(s); for (const a of arr || []) if (STRUCT_BY_ID[a[0]]) Bd.place(a[0], a[1], a[2], a[3], a[4], { done: !!a[5], prog: a[6] || {}, hp: a[7], open: !!a[8], inv: a[9], crop: a[10] ? { id: a[10][0], g: a[10][1], wet: a[10][2] } : null, water: a[11] }); };
+  Bd.save = () => Bd.structs.map((s) => [s.type, +s.x.toFixed(2), +s.y.toFixed(2), +s.z.toFixed(2), +s.yaw.toFixed(3), s.done ? 1 : 0, s.prog, Math.round(s.hp), s.open ? 1 : 0, s.inv, s.crop ? [s.crop.id, +s.crop.g.toFixed(3), +s.crop.wet.toFixed(2)] : 0, s.water, s.tier || 0]);
+  const LEGACY = { stone_wall: ['wall', 2], metal_wall: ['wall', 3], palisade: ['highwall', 1] };
+  Bd.load = (arr) => { for (const s of Bd.structs.slice()) Bd.remove(s); for (const a of arr || []) { if (LEGACY[a[0]]) { a[12] = LEGACY[a[0]][1]; a[0] = LEGACY[a[0]][0]; } else if (a[12] == null && STRUCT_BY_ID[a[0]] && STRUCT_BY_ID[a[0]].tiered) a[12] = 1; } for (const a of arr || []) if (STRUCT_BY_ID[a[0]]) Bd.place(a[0], a[1], a[2], a[3], a[4], { done: !!a[5], prog: a[6] || {}, hp: a[7], open: !!a[8], inv: a[9], crop: a[10] ? { id: a[10][0], g: a[10][1], wet: a[10][2] } : null, water: a[11], tier: a[12] || 0 }); };
   return Bd;
 }

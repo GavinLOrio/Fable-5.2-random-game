@@ -16,6 +16,7 @@ const P = {
   club: 'M10 12h4l1 10H9zM8 3h8l1 9H7z', spear: 'M11 9h2v13h-2zM12 1l4 8H8z', blade: 'M11 16h2v6h-2zM8 14h8v2H8zM10 14V4l2-3 2 3v10z', torch: 'M10 11h4l-1 11h-2zM12 1c4 4 5 6 3 10H9C7 7 9 5 12 1z',
   bow: 'M6 2c12 2 12 18 0 20v-2c9-2 9-14 0-16zM5 3h1.5v18H5zM3 11.2h16v1.6H3z', pistol: 'M3 7h17v4h-9l-1 3H8l1 6H4l1-9H3z', rifle: 'M1 10h14l1-2h7v3h-6l-1 2H9l-2 5H3l2-5H1z',
   smg: 'M2 8h18v3h-4v2h-3l1 7h-4l-1-7H8l-1 4H3l2-6H2z', shotgun: 'M1 9h22v2H1zM3 12h14v2H9l-2 5H3l2-5H3z', armor: 'M6 3l4 2h4l4-2 3 4-3 2v12H6V9L3 7z',
+  hammer: 'M3 4h13v6H3zM9 10h3v12H9z',
   crop: 'M12 22c-4 0-6-3-6-7s3-6 6-6 6 2 6 6-2 7-6 7zM11 9c0-3-2-5-5-6 4-1 6 1 6 4 0-3 2-5 6-4-3 1-5 3-5 6z', seed: 'M8 14a3 4 0 1 0 0.1 0zM16 12a2.5 3.5 0 1 0 0.1 0zM12 4a2.5 3.5 0 1 0 0.1 0z',
 };
 export const icon = (id) => { const it = ITEMS[id]; return `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" fill="${it ? it.tint : '#9da38d'}" d="${P[it ? it.icon : 'gear'] || P.gear}"/></svg>`; };
@@ -91,8 +92,8 @@ export function createUI(G) {
       return h;
     },
     build() {
-      let h = '<p class="label">Pick a blueprint, place its ghost, then carry materials to it and hold E. R or the wheel turns it. Hold X on any structure to take it down.</p>';
-      for (const cat of ['Camp', 'Farming', 'Building', 'Defense', 'Research']) { h += `<div class="sec"><h3>${cat}</h3></div><div class="cards bcards">`; for (const s of STRUCTS.filter((q) => q.cat === cat)) { const locked = s.tech && !G.tech.has(s.tech); h += `<button class="card bcard" data-build="${s.id}" ${locked ? 'disabled' : ''}><img src="${G.thumb(s.id)}" alt="" width="112" height="84"><span class="bc"><b>${esc(s.n)}</b>${locked ? '<span class="tag">Needs research</span>' : ''}<p>${esc(s.d)}</p>${costHtml(s.cost)}</span></button>`; } h += '</div>'; }
+      let h = '<p class="label">Pick a blueprint, place its ghost, then carry materials to it and hold E. R or the wheel turns it. Hold X on any structure to take it down. Building pieces go up in thatch: craft a Building Hammer, hold it and press E on a piece to upgrade it to wood, then stone, then metal.</p>';
+      for (const cat of ['Camp', 'Farming', 'Building', 'Defense', 'Research']) { h += `<div class="sec"><h3>${cat}</h3></div><div class="cards bcards">`; for (const s of STRUCTS.filter((q) => q.cat === cat)) { const locked = s.tech && !G.tech.has(s.tech); h += `<button class="card bcard" data-build="${s.id}" ${locked ? 'disabled' : ''}><img src="${G.thumb(s.id)}" alt="" width="112" height="84"><span class="bc"><b>${esc(s.n)}</b>${locked ? '<span class="tag">Needs research</span>' : s.tiered ? '<span class="tag go">Thatch · upgrade with a hammer</span>' : ''}<p>${esc(s.d)}</p>${costHtml(s.cost)}</span></button>`; } h += '</div>'; }
       return h;
     },
     research() {
