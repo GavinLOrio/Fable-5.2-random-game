@@ -154,6 +154,26 @@ body.touch #vitals { bottom: calc(var(--sb) + 62px); }
 .idetail { background: rgba(0, 0, 0, 0.3); padding: 14px; display: flex; flex-direction: column; gap: 10px; } .idetail p { margin: 0; color: var(--dim); } .idetail h3 { font-size: 21px; }
 .ihead { display: flex; gap: 10px; align-items: center; } .ihead :is(svg, .ico) { width: 46px; height: 46px; flex: none; }
 .slot .ico, .islot .ico { width: 86%; height: 86%; } .tile .ico { width: 80%; height: 80%; } .rec .ico { width: 40px; height: 40px; } .ihead .ico { width: 64px; height: 64px; }
+.iequip { display: grid; grid-template-columns: repeat(2, 64px); gap: 4px; } .iequip .islot { width: auto; }
+.islot.over { box-shadow: inset 0 0 0 2px var(--blood); }
+.ilbl .full { color: #ff9a8a; } .ilbl b { color: var(--ink); font-weight: 700; margin-left: 6px; }
+/* loot screen: inventory on the left, the container on the right */
+.lootv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 16px; align-items: start; }
+.lootv.wide { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+@media (max-width: 780px) { .lootv, .lootv.wide { grid-template-columns: minmax(0, 1fr); } }
+.lootInv, .lootBox { background: rgba(0, 0, 0, 0.3); padding: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lootBox { box-shadow: inset 0 0 0 1px rgba(232, 226, 207, 0.08); }
+.lhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; background: rgba(232, 226, 207, 0.07); margin: -12px -12px 4px; padding: 9px 12px; }
+.lhead h3 { font-size: 19px; } .lhead span { color: var(--dim); font-size: 13px; }
+.lgrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.islot .ph { font: 600 10px var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(232, 226, 207, 0.3); text-align: center; padding: 2px; line-height: 1.1; }
+.islot .sp { position: absolute; left: 4px; right: 4px; bottom: 4px; height: 3px; background: rgba(0, 0, 0, 0.55); } .islot .sp b { display: block; height: 100%; background: var(--amber); }
+.lfoot { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.lbar { flex: 1; display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13px; color: var(--dim); min-width: 180px; }
+.lbar i { height: 8px; background: rgba(0, 0, 0, 0.5); } .lbar i b { display: block; height: 100%; background: var(--c, var(--amber)); transition: width 0.3s; }
+.btn.go { background: var(--moss); color: #10140c; } .btn.stop { background: var(--blood); color: #fff; }
+.lnote { color: var(--dim); font-size: 13px; margin: 2px 0 0; }
+.lootBox .tiers { grid-template-columns: minmax(0, 1fr); } .lootBox .sec:first-child { margin-top: 0; }
 /* build cards with a picture */
 .bcards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .bcard { flex-direction: row; gap: 12px; align-items: flex-start; } .bcard img { width: 112px; height: 84px; flex: none; background: radial-gradient(circle at 50% 60%, rgba(232, 226, 207, 0.12), rgba(0, 0, 0, 0.25)); } .bc { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -171,9 +191,15 @@ input[type=range] { accent-color: var(--amber); width: 150px; }
 #title h1 span { color: var(--amber); }
 #title p { margin: 0; max-width: 52ch; color: var(--ink); }
 #loadmsg { color: var(--dim); min-height: 20px; }
-#dead { background: rgba(60, 6, 4, 0.72); text-align: center; }
-#dead h1 { font-size: clamp(44px, 9vw, 90px); }
-#dead .in { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+#dead { background: rgba(40, 6, 4, 0.82); }
+.dbox { width: min(1040px, 100%); max-height: 100%; overflow: auto; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; background: var(--panel); outline: 1px solid var(--line); padding: 18px; }
+@media (max-width: 760px) { .dbox { grid-template-columns: minmax(0, 1fr); } }
+.dmap canvas { width: 100%; aspect-ratio: 1; display: block; outline: 1px solid var(--line); }
+.dside { display: flex; flex-direction: column; gap: 10px; }
+#dead h1 { font-size: clamp(40px, 6vw, 68px); color: #ff9a8a; line-height: 0.95; }
+.dhow { margin: 0; font: 700 22px var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
+#deadMsg { margin: 0; color: var(--dim); }
+.card.spawn b { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } .vit i b { transition: none; } }
 </style>
 <canvas id="c" tabindex="0"></canvas>
@@ -193,6 +219,7 @@ input[type=range] { accent-color: var(--amber); width: 150px; }
     <div class="vit"><span class="label">Health</span><i><b id="bHp" style="--c: var(--blood)"></b></i></div>
     <div class="vit"><span class="label">Food</span><i><b id="bFood" style="--c: var(--amber)"></b></i></div>
     <div class="vit"><span class="label">Water</span><i><b id="bWater" style="--c: var(--water)"></b></i></div>
+    <div class="vit" id="vO2" hidden><span class="label">Oxygen</span><i><b id="bO2" style="--c: #8fd0ff"></b></i></div>
     <div class="vit"><span class="label">Stamina</span><i><b id="bStam" style="--c: var(--moss)"></b></i></div>
   </div>
   <div id="hotbar"></div>
@@ -216,5 +243,5 @@ input[type=range] { accent-color: var(--amber); width: 150px; }
     <div id="loadmsg">Growing the forest…</div>
   </div>
 </div>
-<div id="dead" class="scrim" hidden><div class="in"><h1>You died</h1><p id="deadMsg"></p><button class="btn" id="btnRespawn">Wake up</button></div></div>
+<div id="dead" class="scrim" hidden><div class="dbox"><div class="dmap"><canvas id="deadCv" width="768" height="768"></canvas></div><div class="dside"><h1>You died</h1><p class="dhow" id="deadHow"></p><p id="deadMsg"></p><span class="ilbl">Wake up at</span><div id="spawnList" class="list"></div></div></div></div>
 <script>/*__BUNDLE__*/</script>

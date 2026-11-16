@@ -6,7 +6,7 @@ const gun = (era, dmg, rpm, auto, mag, reload, spread, recoil, ammo, o = {}) => 
 
 export const ITEMS = {
   // resources
-  log: { n: 'Log', cat: 'res', icon: 'log', tint: '#9a6b3f', max: 24, d: 'Felled timber. The backbone of every structure.' },
+  log: { n: 'Log', cat: 'res', icon: 'log', tint: '#9a6b3f', d: 'Felled timber. The backbone of every structure.' },
   stick: { n: 'Stick', cat: 'res', icon: 'stick', tint: '#b08a55', d: 'Found on the forest floor or shaken from trees.' },
   stone: { n: 'Stone', cat: 'res', icon: 'stone', tint: '#9aa0a3', d: 'Loose rock. Mined faster with a pickaxe.' },
   fiber: { n: 'Plant Fiber', cat: 'res', icon: 'fiber', tint: '#8fb35a', d: 'Stripped from tall flax. Twists into rope and cloth.' },
@@ -71,58 +71,81 @@ export const ITEMS = {
   crossbow: { n: 'Crossbow', cat: 'weapon', icon: 'bow', tint: '#7a6a55', max: 1, w: { kind: 'bow', dmg: 85, ammo: 'bolt', speed: 95, draw: 0, reload: 1.9 }, d: 'Slow to span, hits like a hammer.' },
   flintlock: { n: 'Flintlock Pistol', cat: 'weapon', icon: 'pistol', tint: '#8a6a45', max: 1, w: gun('Black powder', 62, 60, false, 1, 3.2, 2.6, 5, 'ball', { range: 80, smoke: 1 }), d: 'One shot, a cloud of smoke, a long reload.' },
   musket: { n: 'Flintlock Musket', cat: 'weapon', icon: 'rifle', tint: '#8a6a45', max: 1, w: gun('Black powder', 110, 60, false, 1, 4.6, 1.5, 7, 'ball', { range: 160, smoke: 1, zoom: 1.5 }), d: 'A thunderclap. Drops a wolf where it stands.' },
-  hide_armor: { n: 'Hide Armor', cat: 'armor', icon: 'armor', tint: '#8a5f3a', max: 1, armor: 0.18, warm: 1, d: 'Wear: 18% less damage, keeps out the cold.' },
   // tier 2: the war years
   revolver: { n: 'Service Revolver', cat: 'weapon', icon: 'pistol', tint: '#6b7178', max: 1, w: gun('War years', 46, 170, false, 6, 2.6, 1.6, 3.4, 'pistol_ammo', { range: 120 }), d: 'Six rounds, never jams.' },
   bolt_rifle: { n: 'Bolt-Action Rifle', cat: 'weapon', icon: 'rifle', tint: '#7a5a3a', max: 1, w: gun('War years', 96, 46, false, 5, 3.0, 0.45, 4.2, 'rifle_ammo', { range: 400, zoom: 1.9 }), d: 'Five rounds of patient accuracy.' },
   service_rifle: { n: 'Self-Loading Rifle', cat: 'weapon', icon: 'rifle', tint: '#6e5133', max: 1, w: gun('War years', 68, 300, false, 8, 2.4, 0.8, 3.0, 'rifle_ammo', { range: 350, zoom: 1.6 }), d: 'Eight rounds as fast as you can pull.' },
   smg: { n: 'Submachine Gun', cat: 'weapon', icon: 'smg', tint: '#4f555b', max: 1, w: gun('War years', 24, 600, true, 30, 2.5, 2.3, 1.5, 'pistol_ammo', { range: 110 }), d: 'Sprays pistol rounds. Clears a room.' },
   trench_gun: { n: 'Trench Shotgun', cat: 'weapon', icon: 'shotgun', tint: '#5d4a36', max: 1, w: gun('War years', 15, 75, false, 6, 3.4, 5.5, 6, 'shell', { pellets: 9, range: 60 }), d: 'Pump action. Nine pellets a shell.' },
-  field_armor: { n: 'Steel Helmet & Field Jacket', cat: 'armor', icon: 'armor', tint: '#6f7a55', max: 1, armor: 0.34, warm: 1, d: 'Wear: 34% less damage.' },
   // tier 3: modern
   pistol: { n: '9mm Pistol', cat: 'weapon', icon: 'pistol', tint: '#3a3f45', max: 1, w: gun('Modern', 34, 400, false, 15, 1.6, 1.2, 1.8, 'pistol_ammo', { range: 140 }), d: 'Fifteen rounds, quick hands.' },
   assault_rifle: { n: 'Assault Rifle', cat: 'weapon', icon: 'rifle', tint: '#33383d', max: 1, w: gun('Modern', 36, 680, true, 30, 2.3, 0.9, 1.25, 'carbine_ammo', { range: 350, zoom: 1.7 }), d: 'Automatic, accurate, hungry.' },
   combat_shotgun: { n: 'Combat Shotgun', cat: 'weapon', icon: 'shotgun', tint: '#33383d', max: 1, w: gun('Modern', 15, 220, false, 8, 3.0, 4.6, 4.2, 'shell', { pellets: 9, range: 70 }), d: 'Semi-automatic buckshot.' },
   marksman: { n: 'Marksman Rifle', cat: 'weapon', icon: 'rifle', tint: '#2f3a33', max: 1, w: gun('Modern', 150, 50, false, 5, 3.1, 0.08, 5, 'rifle_ammo', { range: 700, zoom: 6, scope: 1 }), d: 'Scoped. One round, one problem solved.' },
-  tac_armor: { n: 'Tactical Vest & Helmet', cat: 'armor', icon: 'armor', tint: '#3d4438', max: 1, armor: 0.52, warm: 1, d: 'Wear: 52% less damage.' },
+  // clothing and armor: slot is where it is worn; armor values add up (head 25%, chest 40%, legs 20%, feet 15% of a set)
+  cloth_hood: { n: 'Cloth Hood', cat: 'armor', slot: 'head', icon: 'armor', tint: '#c9bfa6', max: 1, armor: 0.03, warm: 1, d: 'A wrapped hood. Keeps your ears warm.' },
+  cloth_shirt: { n: 'Cloth Shirt', cat: 'armor', slot: 'chest', icon: 'armor', tint: '#c9bfa6', max: 1, armor: 0.05, warm: 1, d: 'Rough woven shirt. Warm, barely protective.' },
+  cloth_pants: { n: 'Cloth Trousers', cat: 'armor', slot: 'legs', icon: 'armor', tint: '#c9bfa6', max: 1, armor: 0.025, warm: 1, d: 'Woven trousers.' },
+  cloth_shoes: { n: 'Wrapped Shoes', cat: 'armor', slot: 'feet', icon: 'armor', tint: '#c9bfa6', max: 1, armor: 0.015, warm: 1, d: 'Cloth bound around the feet.' },
+  hide_cap: { tech: 'hide_armor', n: 'Hide Cap', cat: 'armor', slot: 'head', icon: 'armor', tint: '#8a5f3a', max: 1, armor: 0.07, warm: 1, d: 'Stitched leather cap.' },
+  hide_armor: { n: 'Hide Tunic', cat: 'armor', slot: 'chest', icon: 'armor', tint: '#8a5f3a', max: 1, armor: 0.11, warm: 1, d: 'Layered hide over the chest.' },
+  
+  hide_pants: { tech: 'hide_armor', n: 'Hide Leggings', cat: 'armor', slot: 'legs', icon: 'armor', tint: '#8a5f3a', max: 1, armor: 0.06, warm: 1, d: 'Tough leather leggings.' },
+  hide_boots: { n: 'Hide Boots', cat: 'armor', slot: 'feet', icon: 'armor', tint: '#8a5f3a', max: 1, armor: 0.04, warm: 1, d: 'Fur-lined boots.', tech: 'hide_armor' },
+  field_helmet: { n: 'Steel Helmet', cat: 'armor', slot: 'head', icon: 'armor', tint: '#6f7a55', max: 1, armor: 0.11, d: 'A pressed steel helmet.', tech: 'field_armor' },
+  field_armor: { n: 'Field Jacket', cat: 'armor', slot: 'chest', icon: 'armor', tint: '#6f7a55', max: 1, armor: 0.18, warm: 1, d: 'Heavy wool jacket over a plate.' },
+  field_pants: { n: 'Field Trousers', cat: 'armor', slot: 'legs', icon: 'armor', tint: '#6f7a55', max: 1, armor: 0.09, warm: 1, d: 'Wool trousers with puttees.', tech: 'field_armor' },
+  field_boots: { n: 'Hobnail Boots', cat: 'armor', slot: 'feet', icon: 'armor', tint: '#5a4630', max: 1, armor: 0.07, d: 'Studded leather boots.', tech: 'field_armor' },
+  tac_helmet: { n: 'Tactical Helmet', cat: 'armor', slot: 'head', icon: 'armor', tint: '#3d4438', max: 1, armor: 0.15, d: 'Composite helmet with rails.', tech: 'tac_armor' },
+  tac_armor: { n: 'Tactical Vest', cat: 'armor', slot: 'chest', icon: 'armor', tint: '#3d4438', max: 1, armor: 0.25, warm: 1, d: 'Plate carrier with pouches.' },
+  tac_pants: { n: 'Combat Trousers', cat: 'armor', slot: 'legs', icon: 'armor', tint: '#3d4438', max: 1, armor: 0.13, warm: 1, d: 'Ripstop trousers with knee pads.', tech: 'tac_armor' },
+  tac_boots: { n: 'Combat Boots', cat: 'armor', slot: 'feet', icon: 'armor', tint: '#23262a', max: 1, armor: 0.09, d: 'Laced combat boots.', tech: 'tac_armor' },
+  // backpacks add rows of inventory slots
+  small_backpack: { n: 'Small Backpack', cat: 'armor', slot: 'back', icon: 'armor', tint: '#8a7a52', max: 1, bag: 6, d: 'A satchel of woven cloth. +6 inventory slots.' },
+  large_backpack: { n: 'Large Backpack', cat: 'armor', slot: 'back', icon: 'armor', tint: '#6a4a30', max: 1, bag: 12, d: 'A hide pack on a frame. +12 inventory slots.' },
+  military_backpack: { n: 'Military Rucksack', cat: 'armor', slot: 'back', icon: 'armor', tint: '#4c5540', max: 1, bag: 18, d: 'A large canvas rucksack. +18 inventory slots.' },
   flashlight: { n: 'Flashlight', cat: 'tool', icon: 'torch', tint: '#d9d9d9', max: 1, d: 'Press F to switch on a hands-free beam.' },
 };
 for (const id in ITEMS) { ITEMS[id].id = id; if (!ITEMS[id].max) ITEMS[id].max = 9999; }
+// how many fit in one inventory slot
+export const STACK = (id) => { const it = ITEMS[id]; if (it.max === 1) return 1; return id === 'log' ? 60 : it.cat === 'res' ? 500 : it.cat === 'ammo' ? 128 : it.cat === 'seed' ? 50 : it.cat === 'med' ? 10 : 20; };
+export const EQUIP = [['head', 'Head'], ['chest', 'Chest'], ['legs', 'Legs'], ['feet', 'Feet'], ['back', 'Back']];
+export const BASE_SLOTS = 24;
 
 // Recipes: tier = research table level needed nearby (0 = craft anywhere). st = station: fire | furnace.
 const R = (id, cost, tier = 0, n = 1, st = null) => ({ id, cost, tier, n, st });
 export const RECIPES = [
   R('rope', { fiber: 3 }), R('cloth', { fiber: 4 }), R('bandage', { cloth: 2 }),
+  R('cloth_hood', { cloth: 3 }), R('cloth_shirt', { cloth: 5, rope: 1 }), R('cloth_pants', { cloth: 4, rope: 1 }), R('cloth_shoes', { cloth: 3, fiber: 4 }), R('small_backpack', { cloth: 6, rope: 2 }),
   R('stone_axe', { stick: 2, stone: 2, fiber: 2 }), R('stone_pick', { stick: 2, stone: 3, fiber: 2 }),
   R('hammer', { stick: 2, stone: 2, rope: 1 }), R('club', { log: 1 }), R('spear', { stick: 3, bone: 2, rope: 1 }), R('torch', { stick: 1, cloth: 1 }),
   R('bow', { stick: 3, rope: 2 }), R('arrow', { stick: 2, stone: 1 }, 0, 4),
-  R('poultice', { herb: 2, cloth: 1 }), R('baked_potato', { potato: 1 }, 0, 1, 'fire'), R('roast_corn', { corn: 1 }, 0, 1, 'fire'),
-  R('cooked_meat', { raw_meat: 1 }, 0, 1, 'fire'), R('charcoal', { log: 1 }, 0, 3, 'fire'), R('water_bottle', { empty_bottle: 1, berries: 0 }, 0, 1, 'water'),
-  R('metal', { iron_ore: 2, charcoal: 1 }, 0, 1, 'furnace'), R('metal', { scrap: 6, charcoal: 1 }, 0, 1, 'furnace'),
+  R('poultice', { herb: 2, cloth: 1 }),
+  R('water_bottle', { empty_bottle: 1, berries: 0 }, 0, 1, 'water'),
   R('gunpowder', { sulfur: 1, charcoal: 2 }, 1, 3),
   R('iron_axe', { metal: 3, stick: 2, rope: 1 }, 1), R('iron_pick', { metal: 3, stick: 2, rope: 1 }, 1), R('machete', { metal: 4, cloth: 1 }, 1),
   R('crossbow', { log: 1, metal: 3, rope: 3 }, 1), R('bolt', { stick: 1, metal: 1 }, 1, 4),
   R('flintlock', { metal: 5, log: 1, parts: 1 }, 1), R('musket', { metal: 9, log: 2, parts: 2 }, 1), R('ball', { metal: 1, gunpowder: 2, cloth: 1 }, 1, 5),
-  R('hide_armor', { hide: 6, rope: 3 }, 1),
+  R('hide_cap', { hide: 2, rope: 1 }, 1), R('hide_armor', { hide: 6, rope: 3 }, 1), R('hide_pants', { hide: 4, rope: 2 }, 1), R('hide_boots', { hide: 3, rope: 1 }, 1), R('large_backpack', { hide: 8, rope: 4, cloth: 4 }, 1),
   R('revolver', { metal: 10, parts: 3 }, 2), R('bolt_rifle', { metal: 16, log: 2, parts: 4 }, 2), R('service_rifle', { metal: 22, log: 2, parts: 7 }, 2),
   R('smg', { metal: 20, parts: 8 }, 2), R('trench_gun', { metal: 18, log: 1, parts: 5 }, 2),
   R('pistol_ammo', { metal: 1, gunpowder: 2 }, 2, 8), R('rifle_ammo', { metal: 2, gunpowder: 3 }, 2, 6), R('shell', { metal: 1, gunpowder: 3, cloth: 1 }, 2, 4),
-  R('field_armor', { metal: 12, cloth: 8, hide: 2 }, 2), R('medkit', { cloth: 4, bandage: 2, berries: 6 }, 2),
+  R('field_helmet', { metal: 6, cloth: 1 }, 2), R('field_armor', { metal: 8, cloth: 8, hide: 2 }, 2), R('field_pants', { cloth: 8, metal: 3 }, 2), R('field_boots', { hide: 4, metal: 2 }, 2), R('military_backpack', { cloth: 16, metal: 6, parts: 2 }, 2), R('medkit', { cloth: 4, bandage: 2, berries: 6 }, 2),
   R('pistol', { metal: 14, parts: 6, electronics: 0 }, 3), R('assault_rifle', { metal: 34, parts: 14, electronics: 2 }, 3), R('combat_shotgun', { metal: 30, parts: 12 }, 3),
   R('marksman', { metal: 40, parts: 16, electronics: 5 }, 3), R('carbine_ammo', { metal: 2, gunpowder: 3 }, 3, 10),
-  R('tac_armor', { metal: 20, cloth: 14, electronics: 2 }, 3), R('flashlight', { metal: 4, electronics: 2 }, 3),
+  R('tac_helmet', { metal: 10, electronics: 1 }, 3), R('tac_armor', { metal: 16, cloth: 12, electronics: 2 }, 3), R('tac_pants', { cloth: 10, metal: 6 }, 3), R('tac_boots', { hide: 4, metal: 4, cloth: 2 }, 3), R('flashlight', { metal: 4, electronics: 2 }, 3),
 ];
 for (const r of RECIPES) for (const k in r.cost) if (!r.cost[k]) delete r.cost[k];
 
 // Research: spend scrap at a table of the right level. Costs rise steeply with each tier.
 const T = (id, tier, cost, req = null, n = null) => ({ id, tier, cost, req, n });
 export const TECH = [
-  T('gunpowder', 1, 30), T('iron_axe', 1, 25), T('iron_pick', 1, 25), T('machete', 1, 40, 'iron_axe'), T('crossbow', 1, 45), T('hide_armor', 1, 35),
+  T('gunpowder', 1, 30), T('iron_axe', 1, 25), T('iron_pick', 1, 25), T('machete', 1, 40, 'iron_axe'), T('crossbow', 1, 45), T('hide_armor', 1, 40, null, 'Hide armor set'), T('large_backpack', 1, 45),
   T('flintlock', 1, 60, 'gunpowder'), T('musket', 1, 90, 'flintlock'), T('s_furnace', 1, 30, null, 'Furnace'), T('s_stone_wall', 1, 50, null, 'Stone building'), T('s_gate', 1, 40, null, 'Log Gate'),
   T('revolver', 2, 120), T('bolt_rifle', 2, 160), T('trench_gun', 2, 200, 'revolver'), T('smg', 2, 240, 'revolver'), T('service_rifle', 2, 280, 'bolt_rifle'),
-  T('field_armor', 2, 150), T('medkit', 2, 100), T('s_tower', 2, 120, null, 'Watchtower'), T('s_lamp', 2, 80, null, 'Lantern Post'),
+  T('field_armor', 2, 160, null, 'Field uniform set'), T('military_backpack', 2, 130), T('medkit', 2, 100), T('s_tower', 2, 120, null, 'Watchtower'), T('s_lamp', 2, 80, null, 'Lantern Post'),
   T('pistol', 3, 300), T('combat_shotgun', 3, 450, 'pistol'), T('assault_rifle', 3, 600, 'pistol'), T('marksman', 3, 750, 'assault_rifle'),
-  T('tac_armor', 3, 500), T('flashlight', 3, 250), T('s_metal_wall', 3, 400, null, 'Steel building'),
+  T('tac_armor', 3, 520, null, 'Tactical armor set'), T('flashlight', 3, 250), T('s_metal_wall', 3, 400, null, 'Steel building'),
 ];
 // ammo recipes unlock with their first weapon
 export const TECH_GRANTS = { crossbow: ['bolt'], flintlock: ['ball'], revolver: ['pistol_ammo'], bolt_rifle: ['rifle_ammo'], trench_gun: ['shell'], assault_rifle: ['carbine_ammo'], pistol: ['pistol_ammo'], marksman: ['rifle_ammo'], combat_shotgun: ['shell'], smg: ['pistol_ammo'], service_rifle: ['rifle_ammo'], musket: ['ball'] };
@@ -133,7 +156,8 @@ export const TIER_NAMES = ['Field craft', 'Iron & black powder', 'The war years'
 const S = (id, n, cat, cost, hp, snap = 'free', o = {}) => ({ id, n, cat, cost, hp, snap, ...o });
 export const STRUCTS = [
   S('campfire', 'Campfire', 'Camp', { stick: 4, stone: 6 }, 150, 'free', { d: 'Cooks meat, burns charcoal, warms you, lights the dark.' }),
-  S('leanto', 'Lean-to Shelter', 'Camp', { log: 4, stick: 8 }, 250, 'free', { d: 'Sleep through the night and set your respawn point.' }),
+  S('sleeping_bag', 'Sleeping Bag', 'Camp', { cloth: 4, fiber: 6 }, 100, 'free', { d: 'Sleep through the night. When you die you can choose to wake up here.' }),
+  S('bed', 'Bed', 'Camp', { log: 4, cloth: 8, rope: 2 }, 300, 'free', { d: 'Sleep through the night and wake up well rested. A place to respawn.' }),
   S('chest', 'Storage Chest', 'Camp', { log: 3, rope: 1 }, 250, 'free', { d: 'Holds what you cannot carry. Contents survive your death.' }),
   S('collector', 'Rain Collector', 'Camp', { log: 2, cloth: 3, stick: 4 }, 150, 'free', { d: 'Drink from it or fill bottles.' }),
   S('plot', 'Garden Plot', 'Farming', { stick: 4, stone: 2 }, 100, 'free', { d: 'Tilled soil on open ground. Plant a seed, keep it watered, harvest a full yield.' }),
@@ -196,4 +220,20 @@ export const WEATHER = {
   rain: { n: 'Rain', w: 3, sight: 0.7, light: 0.6, fog: 2.2, rain: 0.6 },
   storm: { n: 'Thunderstorm', w: 1.3, sight: 0.5, light: 0.42, fog: 3, rain: 1 },
   fog: { n: 'Fog', w: 1.6, sight: 0.45, light: 0.8, fog: 6.5, rain: 0 },
+};
+
+// Fires: fuel burns for t seconds (logs leave charcoal); each input slot cooks or smelts one batch of `need` into `out` every t seconds.
+export const FUEL = { log: { t: 40, char: 1 }, stick: { t: 10, char: 0 } };
+export const COOK = { raw_meat: { out: 'cooked_meat', t: 14, need: 1 }, potato: { out: 'baked_potato', t: 16, need: 1 }, corn: { out: 'roast_corn', t: 14, need: 1 } };
+export const SMELT = { iron_ore: { out: 'metal', t: 10, need: 2 }, scrap: { out: 'metal', t: 12, need: 5 } };
+const SEEDS = Object.keys(ITEMS).filter((k) => ITEMS[k].crop);
+// Containers: slot groups [label, key, slots, what goes in ('any', a list of items, or null for output only), hint shown in an empty slot]
+export const BOXES = {
+  campfire: { title: 'Campfire', fire: COOK, groups: [['Fuel', 'fuel', 1, Object.keys(FUEL), 'Wood'], ['Cooking', 'in', 3, Object.keys(COOK), 'Raw food'], ['Output', 'out', 4, null]] },
+  furnace: { title: 'Furnace', fire: SMELT, groups: [['Fuel', 'fuel', 1, Object.keys(FUEL), 'Wood'], ['Smelting', 'in', 3, Object.keys(SMELT), 'Ore'], ['Output', 'out', 4, null]] },
+  chest: { title: 'Storage Chest', groups: [['Storage', 'store', 18, 'any']] },
+  collector: { title: 'Rain Collector', groups: [['Empty bottles', 'in', 2, ['empty_bottle'], 'Bottle'], ['Filled bottles', 'out', 2, null]] },
+  plot: { title: 'Garden Plot', groups: [['Seed', 'seed', 1, SEEDS, 'Seed']] },
+  planter: { title: 'Planter Box', groups: [['Seed', 'seed', 1, SEEDS, 'Seed']] },
+  loot: { title: 'Contents', groups: [['Contents', 'store', 12, null]] },
 };

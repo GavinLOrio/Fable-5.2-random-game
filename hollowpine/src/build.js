@@ -65,7 +65,8 @@ const MODELS = {
   ladder: () => { const a = []; for (const x of [-0.3, 0.3]) a.push(box(0.07, 2.85, 0.07, x, 1.42, 0, 0x6b4e32)); for (let i = 0; i < 8; i++) a.push(box(0.6, 0.05, 0.06, 0, 0.25 + i * 0.34, 0, 0x8a6d4a)); return a; },
   gate: () => { const a = []; for (let i = 0; i < 9; i++) a.push(box(0.29, 2.5, 0.09, -1.2 + i * 0.3, 1.3, 0, i % 2 ? PLANK : 0x7d6142)); a.push(box(2.7, 0.14, 0.14, 0, 0.6, 0.06, 0x5a4630), box(2.7, 0.14, 0.14, 0, 2.0, 0.06, 0x5a4630), box(0.3, 0.1, 0.16, 1.1, 1.3, 0.08, STEEL)); return a; },
   campfire: () => { const a = []; for (let i = 0; i < 8; i++) a.push(rock(0.16, Math.cos(i * 0.785) * 0.55, 0.08, Math.sin(i * 0.785) * 0.55)); for (let i = 0; i < 4; i++) a.push(box(0.07, 0.7, 0.07, Math.cos(i * 1.57) * 0.16, 0.3, Math.sin(i * 1.57) * 0.16, 0x4a3524, i * 1.57, 0, 0.5)); return a; },
-  leanto: () => { const a = [log(1.9, 0.07, -1.2, 0.95, 0.7, 'y'), log(1.9, 0.07, 1.2, 0.95, 0.7, 'y'), log(2.8, 0.07, 0, 1.85, 0.7, 'x')]; for (let i = 0; i < 8; i++) a.push(box(0.3, 0.08, 2.7, -1.15 + i * 0.33, 0.95, -0.35, i % 2 ? 0x6b4e32 : 0x7a5a3a, 0, 0.75)); a.push(box(2.0, 0.1, 1.0, 0, 0.06, -0.2, 0x5d7a3c)); return a; },
+  sleeping_bag: () => { const a = [box(0.86, 0.12, 2.0, 0, 0.06, 0, 0x4f6a4a), box(0.84, 0.05, 1.3, 0, 0.13, 0.32, 0x5f7a56), box(0.86, 0.02, 0.06, 0, 0.16, -0.34, 0x2e3a2c), log(0.6, 0.1, 0, 0.12, -0.8, 'x', 0xd8d0bc)]; for (let i = 0; i < 6; i++) a.push(box(0.88, 0.005, 0.02, 0, 0.125, -0.85 + i * 0.32, 0x3f5a3a)); return a; },
+  bed: () => { const a = []; for (const x of [-0.5, 0.5]) for (const z of [-1.0, 1.0]) a.push(box(0.1, 0.45, 0.1, x, 0.225, z, 0x5a4630)); a.push(box(0.1, 0.9, 0.12, -0.5, 0.45, -1.05, 0x5a4630), box(0.1, 0.9, 0.12, 0.5, 0.45, -1.05, 0x5a4630), box(1.1, 0.5, 0.08, 0, 0.62, -1.06, PLANK), box(1.1, 0.1, 2.15, 0, 0.35, 0, 0x6b4e32), box(1.0, 0.16, 1.95, 0, 0.48, 0.02, 0xd8d0bc), box(1.04, 0.06, 1.3, 0, 0.58, 0.33, 0x7a3a30), box(0.6, 0.1, 0.32, 0, 0.6, -0.78, 0xf0ece0)); return a; },
   chest: () => [box(1.1, 0.5, 0.6, 0, 0.25, 0, PLANK), box(1.14, 0.14, 0.64, 0, 0.57, 0, 0x6b4e32), box(0.12, 0.16, 0.04, 0, 0.45, 0.31, STEEL), box(0.06, 0.66, 0.66, -0.4, 0.33, 0, 0x3d4246), box(0.06, 0.66, 0.66, 0.4, 0.33, 0, 0x3d4246)],
   collector: () => { const a = []; for (const sx of [-0.6, 0.6]) for (const sz of [-0.6, 0.6]) a.push(log(1.3, 0.04, sx, 0.65, sz, 'y')); a.push(box(1.3, 0.04, 1.3, 0, 1.15, 0, 0xcfc7b0, 0, 0.12, 0.1), log(0.45, 0.28, 0, 0.23, 0, 'y', 0x4a6a7a)); return a; },
   spikes: () => { const a = [log(2.8, 0.08, 0, 0.35, 0, 'x')]; for (let i = 0; i < 9; i++) { const g = new THREE.CylinderGeometry(0.01, 0.05, 1.5, 5); g.rotateX((i % 2 ? 1 : -1) * 0.75); g.translate(-1.2 + i * 0.3, 0.5, 0); a.push(tint(g, 0x8a6d4a)); } return a; },
@@ -85,7 +86,7 @@ const COLS = {
   window: [[0, 0, 0, M, 0.9, 0.3], [0, 1.8, 0, M, 0.9, 0.3], [-1.05, 0.9, 0, 0.9, 0.9, 0.3], [1.05, 0.9, 0, 0.9, 0.9, 0.3]],
   foundation: [[0, -0.3, 0, M, 0.3, M]], floor: [[0, -0.3, 0, M, 0.3, M]], roof: [[0, 0.6, 0, M, 0.25, M]],
   stairs: [...Array(9)].map((_, i) => [0, i * 0.3, 1.5 - (i + 0.5) / 3, 1.6, 0.3, 0.34]),
-  campfire: [[0, 0, 0, 0.9, 0.3, 0.9]], leanto: [[0, 0, -0.9, 2.6, 0.5, 0.3]], chest: [[0, 0, 0, 1.1, 0.64, 0.6]], collector: [[0, 0, 0, 0.6, 0.5, 0.6]], spikes: [[0, 0, 0, 2.8, 1.0, 0.9]], furnace: [[0, 0, 0, 1.6, 2.0, 1.6]],
+  campfire: [[0, 0, 0, 0.9, 0.3, 0.9]], sleeping_bag: [], bed: [[0, 0, 0, 1.1, 0.56, 2.15]], chest: [[0, 0, 0, 1.1, 0.64, 0.6]], collector: [[0, 0, 0, 0.6, 0.5, 0.6]], spikes: [[0, 0, 0, 2.8, 1.0, 0.9]], furnace: [[0, 0, 0, 1.6, 2.0, 1.6]],
   plot: [], planter: [[0, 0, 0, 1.5, 0.5, 0.8]], research1: [[0, 0, 0, 2.0, 0.92, 0.9]], research2: [[0, 0, 0, 2.2, 0.96, 1.0]], research3: [[0, 0, 0, 2.4, 0.96, 1.0]], lamp: [[0, 0, 0, 0.2, 2.6, 0.2]],
   tower: [[0, 4.7, 0, 3.6, 0.3, 3.6], [0, 5.0, -1.7, 3.6, 1.1, 0.14], [-1.7, 5.0, 0, 0.14, 1.1, 3.6], [1.7, 5.0, 0, 0.14, 1.1, 3.6], [-0.7, 5.0, 1.7, 2.2, 1.1, 0.14], ...[...Array(20)].map((_, i) => [1.1, i * 0.25, 9.0 - (i + 0.5) * 0.36, 1.2, 0.25, 0.38])],
 };
@@ -151,9 +152,9 @@ export function createBuild(scene, W) {
   function refresh(s) { if (!s.partMeshes) return; const k = Math.floor(s.partMeshes.length * added(s) / total(s.def)); s.partMeshes.forEach((m, i) => { const on = i < k; m.material = on ? solidMat : ghostMat; m.castShadow = on; }); }
 
   Bd.place = (type, x, y, z, yaw, o = {}) => {
-    const def = STRUCT_BY_ID[type], s = { type, def, x, y, z, yaw, done: !!o.done, prog: o.prog || {}, hp: o.hp != null ? o.hp : def.hp, tier: o.tier || 0, cols: [], group: new THREE.Group(), open: !!o.open, inv: o.inv || (type === 'chest' ? {} : null), crop: o.crop || null, water: o.water != null ? o.water : 1 };
+    const def = STRUCT_BY_ID[type], s = { type, def, x, y, z, yaw, done: !!o.done, prog: o.prog || {}, hp: o.hp != null ? o.hp : def.hp, tier: o.tier || 0, cols: [], group: new THREE.Group(), open: !!o.open, inv: o.inv || null, crop: o.crop || null, water: o.water != null ? o.water : 1 };
     if (o.hp == null) s.hp = Bd.maxHp(s);
-    s.group.position.set(x, y, z); s.group.rotation.y = yaw; scene.add(s.group); rebuild(s); Bd.setCrop(s); setColliders(s, s.done); if (s.done && s.open) for (const c of s.cols) c.off = true;
+    s.group.position.set(x, y, z); s.group.rotation.y = yaw; s.group.userData.struct = s; scene.add(s.group); rebuild(s); Bd.setCrop(s); setColliders(s, s.done); if (s.done && s.open) for (const c of s.cols) c.off = true;
     Bd.structs.push(s); return s;
   };
   Bd.remove = (s) => { setColliders(s, false); scene.remove(s.group); const i = Bd.structs.indexOf(s); if (i >= 0) Bd.structs.splice(i, 1); };
@@ -166,16 +167,18 @@ export function createBuild(scene, W) {
   Bd.toggle = (s) => { s.open = !s.open; if (s.pivot) s.pivot.rotation.y = s.open ? -1.5 : 0; for (const c of s.cols) c.off = s.open; };
   Bd.damage = (s, d) => { s.hp -= d; if (s.hp <= 0) { Bd.remove(s); return true; } return false; };
   Bd.near = (x, z, r, pred) => { let best = null, bd = r; for (const s of Bd.structs) { if (!s.done || !pred(s)) continue; const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; best = s; } } return best; };
-  Bd.lights = (out) => { for (const s of Bd.structs) { const L = LIGHT[s.type]; if (s.done && L) out.push({ x: s.x, y: s.y + L[2] + 0.5, z: s.z, color: L[0], power: L[1], flick: s.type === 'campfire' }); } };
+  const burning = (s) => (s.type !== 'campfire' && s.type !== 'furnace') || !!(s.inv && s.inv.on);
+  Bd.burning = burning;
+  Bd.lights = (out) => { for (const s of Bd.structs) { const L = LIGHT[s.type]; if (s.done && L && burning(s)) out.push({ x: s.x, y: s.y + L[2] + 0.5, z: s.z, color: L[0], power: L[1], flick: s.type === 'campfire' }); } };
   // nearest structure along a view ray (blueprints included, they have no colliders)
+  // the piece under the crosshair: a true raycast against the visible parts of nearby structures and blueprints
+  const rc = new THREE.Raycaster(), RO = new THREE.Vector3(), RD = new THREE.Vector3(), near = [];
   Bd.target = (ox, oy, oz, dx, dy, dz, max) => {
-    let best = null, bt = max;
-    for (const s of Bd.structs) {
-      const cy = s.y + (CENTER[s.def.snap] || 0.5), fx = s.x - ox, fy = cy - oy, fz = s.z - oz, t = fx * dx + fy * dy + fz * dz; if (t < 0 || t > bt + 1.5) continue;
-      const px = fx - dx * t, py = fy - dy * t, pz = fz - dz * t, rad = s.def.snap === 'free' ? 0.9 : 1.3; if (px * px + py * py + pz * pz < rad * rad && t - 0.6 < bt) { bt = Math.max(0, t - 0.6); best = s; }
-    }
-    return best;
+    near.length = 0; for (const s of Bd.structs) if (Math.abs(s.x - ox) + Math.abs(s.z - oz) < max + 6 && Math.abs(s.y - oy) < max + 8) { s.group.updateMatrixWorld(true); near.push(s.group); }
+    if (!near.length) return null; rc.set(RO.set(ox, oy, oz), RD.set(dx, dy, dz)); rc.near = 0; rc.far = max;
+    const hit = rc.intersectObjects(near, true)[0]; if (!hit) return null; let o = hit.object; while (o && !o.userData.struct) o = o.parent; return o ? o.userData.struct : null;
   };
+
 
   // ---- ghost placement
   const ghost = new THREE.Group(); ghost.visible = false; scene.add(ghost);
@@ -239,9 +242,9 @@ export function createBuild(scene, W) {
     for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { const s = ((TH - 1 - y) * TW + x) * 4, d = (y * TW + x) * 4; for (let k = 0; k < 3; k++) im.data[d + k] = Math.pow(Math.min(1, px[s + k] / 255), 1 / 2.2) * 255; im.data[d + 3] = px[s + 3]; }
     ctx.putImageData(im, 0, 0); return thumbs[type] = tCv.toDataURL('image/png');
   };
-  Bd.update = (t) => { for (const s of Bd.structs) if (s.flame) { const k = 0.85 + Math.sin(t * 13 + s.x) * 0.12 + Math.sin(t * 7.3) * 0.1; s.flame.scale.set(k, 0.8 + k * 0.4, k); } };
+  Bd.update = (t) => { for (const s of Bd.structs) if (s.flame) { s.flame.visible = burning(s); const k = 0.85 + Math.sin(t * 13 + s.x) * 0.12 + Math.sin(t * 7.3) * 0.1; s.flame.scale.set(k, 0.8 + k * 0.4, k); } };
   Bd.save = () => Bd.structs.map((s) => [s.type, +s.x.toFixed(2), +s.y.toFixed(2), +s.z.toFixed(2), +s.yaw.toFixed(3), s.done ? 1 : 0, s.prog, Math.round(s.hp), s.open ? 1 : 0, s.inv, s.crop ? [s.crop.id, +s.crop.g.toFixed(3), +s.crop.wet.toFixed(2)] : 0, s.water, s.tier || 0]);
-  const LEGACY = { stone_wall: ['wall', 2], metal_wall: ['wall', 3], palisade: ['highwall', 1] };
+  const LEGACY = { stone_wall: ['wall', 2], metal_wall: ['wall', 3], palisade: ['highwall', 1], leanto: ['sleeping_bag', 0] };
   Bd.load = (arr) => { for (const s of Bd.structs.slice()) Bd.remove(s); for (const a of arr || []) { if (LEGACY[a[0]]) { a[12] = LEGACY[a[0]][1]; a[0] = LEGACY[a[0]][0]; } else if (a[12] == null && STRUCT_BY_ID[a[0]] && STRUCT_BY_ID[a[0]].tiered) a[12] = 1; } for (const a of arr || []) if (STRUCT_BY_ID[a[0]]) Bd.place(a[0], a[1], a[2], a[3], a[4], { done: !!a[5], prog: a[6] || {}, hp: a[7], open: !!a[8], inv: a[9], crop: a[10] ? { id: a[10][0], g: a[10][1], wet: a[10][2] } : null, water: a[11], tier: a[12] || 0 }); };
   return Bd;
 }

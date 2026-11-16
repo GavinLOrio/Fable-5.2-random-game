@@ -35,7 +35,7 @@ export function createMobs(scene, W, G) {
     }
     return best;
   };
-  M.corpseNear = (x, y, z, r) => { let best = null, bd = r; for (const m of M.list) if (m.dead && !m.looted) { const d = Math.hypot(m.x - x, m.z - z, m.y - y); if (d < bd) { bd = d; best = m; } } return best; };
+  M.corpseNear = (x, y, z, r) => { let best = null, bd = r; for (const m of M.list) if (m.dead && (!m.looted || (m.box && m.box.slots.some(Boolean)))) { const d = Math.hypot(m.x - x, m.z - z, m.y - y); if (d < bd) { bd = d; best = m; } } return best; };
   M.loot = (m) => { m.looted = true; m.dead = Math.max(m.dead, 110); const out = {}; for (const k in m.def.loot) { const n = ri(m.def.loot[k][0], m.def.loot[k][1]); if (n) out[k] = n; } if (m.def.extra) { const e = rollLoot(m.def.extra, 1); for (const k in e) out[k] = (out[k] || 0) + e[k]; } return out; };
 
   function move(m, dt, speed) {

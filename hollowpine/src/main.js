@@ -6,7 +6,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { ITEMS, RECIPES, TECH_BY_ID, TECH_GRANTS, STRUCT_BY_ID, LOOT, CROPS, WEATHER, TIERS } from './data.js';
+import { ITEMS, RECIPES, TECH_BY_ID, TECH_GRANTS, STRUCT_BY_ID, LOOT, CROPS, WEATHER, TIERS, BOXES, FUEL, STACK, EQUIP, BASE_SLOTS } from './data.js';
 import { createWorld, HALF, LAKE } from './world.js';
 import { createBuild } from './build.js';
 import { createMobs, rollLoot } from './entities.js';
@@ -22,7 +22,7 @@ const rnd = (a, b) => a + Math.random() * (b - a), ri = (a, b) => Math.floor(rnd
 const SAVE_KEY = 'hollowpine.save.v1', SET_KEY = 'hollowpine.settings.v1', DAY = 24 * 60;
 const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } } };
 const coarse = matchMedia('(pointer: coarse)').matches;
-const settings = Object.assign({ quality: coarse ? 0 : 1, sens: 1, vol: 0.7, invert: 0 }, store.get(SET_KEY) || {});
+const settings = Object.assign({ quality: coarse ? 0 : 1, sens: 1, vol: 0.7, invert: 0, keepInv: 0 }, store.get(SET_KEY) || {});
 const Q = [{ pr: 1, shadow: 0, grass: 44, near: 130 }, { pr: 1.5, shadow: 2048, grass: 70, near: 210 }, { pr: 2, shadow: 4096, grass: 96, near: 280 }][settings.quality];
 
 // ---------------------------------------------------------------- renderer and sky
@@ -78,8 +78,8 @@ function resize() { const w = window.innerWidth, h = window.innerHeight; rendere
 window.addEventListener('resize', resize); resize();
 
 // ---------------------------------------------------------------- state
-const P = { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, hp: 100, food: 100, water: 100, stam: 100, crouch: false, dead: false, lit: false, moving: false, ground: true, swim: false, stamWait: 0, vx: 0, vz: 0 };
-const G = { P, inv: {}, hot: Array(8).fill(null), sel: 0, mags: {}, armor: null, tech: new Set(), time: 0, chest: null, settings, spawn: null, pack: null };
+const P = { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, hp: 100, food: 100, water: 100, stam: 100, o2: 100, crouch: false, dead: false, lit: false, moving: false, ground: true, swim: false, stamWait: 0, vx: 0, vz: 0 };
+const G = { P, inv: {}, hot: Array(8).fill(null), sel: 0, mags: {}, worn: { head: null, chest: null, legs: null, feet: null, back: null }, tech: new Set(), time: 0, chest: null, settings, spawn: null, pack: null };
 let W, Bd, M, U, art = null, started = false, lastSaveAt = 0, weather = { id: 'clear', t: 240 }, wx = { rain: 0, fog: 1, light: 1, sight: 1, cloud: 0 };
 const audio = createAudio(), input = createInput(canvas);
 input.onFirst = () => audio.init();
@@ -88,20 +88,34 @@ G.dayFloat = () => G.time / DAY + 8 / 24; G.day = () => Math.floor(G.dayFloat())
 G.isNight = () => { const t = tod(); return t < 5.5 || t > 19.5; };
 G.sightK = () => wx.sight;
 G.count = (id) => G.inv[id] || 0;
+const beltable = (it) => ['tool', 'weapon', 'food', 'med', 'seed'].includes(it.cat);
+G.equipped = (id) => G.hot.includes(id) || Object.values(G.worn).includes(id);
+G.capacity = () => BASE_SLOTS + (G.worn.back && ITEMS[G.worn.back] ? ITEMS[G.worn.back].bag : 0);
+G.usedSlots = () => { let u = 0; for (const k in G.inv) if (G.inv[k] > 0 && !G.equipped(k)) u += Math.ceil(G.inv[k] / STACK(k)); return u; };
 G.give = (id, n = 1, quiet) => {
-  const it = ITEMS[id]; if (!it || n <= 0) return 0; const add = Math.min(n, it.max - G.count(id)); if (add <= 0) { if (!quiet) U.toast(`Cannot carry more ${it.n}`, 'bad'); return 0; }
+  const it = ITEMS[id]; if (!it || n <= 0) return 0; const c = G.count(id); let room = it.max - c;
+  if (!G.equipped(id) && !(beltable(it) && c === 0 && G.hot.indexOf(null) >= 0)) { const st = STACK(id); room = Math.min(room, Math.ceil(c / st) * st - c + Math.max(0, G.capacity() - G.usedSlots()) * st); }
+  const add = Math.min(n, room); if (add <= 0) { if (!quiet) U.toast(it.max === 1 && c ? `You already have a ${it.n}` : 'Your inventory is full', 'bad'); return 0; }
   G.inv[id] = G.count(id) + add; if (!quiet) U.gain(id, add);
   if (['tool', 'weapon', 'food', 'med', 'seed'].includes(it.cat) && !G.hot.includes(id)) { const i = G.hot.indexOf(null); if (i >= 0) G.hot[i] = id; }
   dirty = true; return add;
 };
-G.take = (id, n = 1) => { const c = G.count(id); if (c < n) return false; G.inv[id] = c - n; if (!G.inv[id]) { delete G.inv[id]; if (G.armor === id) G.armor = null; } dirty = true; return true; };
+G.take = (id, n = 1) => { const c = G.count(id); if (c < n) return false; G.inv[id] = c - n; if (!G.inv[id]) { delete G.inv[id]; for (const k in G.worn) if (G.worn[k] === id) G.worn[k] = null; } dirty = true; return true; };
 G.select = (i) => { if (G.sel !== i) { G.sel = i; reloadT = 0; drawT = 0; swingT = 0; G.sfx('ui'); } };
 G.assign = (slot, id) => { const old = G.hot.indexOf(id); if (old >= 0) G.hot[old] = G.hot[slot]; G.hot[slot] = id; };
-G.wear = (id) => { G.armor = G.armor === id ? null : id; G.sfx('craft'); };
+G.isWorn = (id) => Object.values(G.worn).includes(id);
+// put clothing on or take it off; a backpack only comes off if everything still fits without it
+G.wear = (id, on) => { const it = ITEMS[id]; if (!it || !it.slot || !G.count(id)) return; const k = it.slot, wearing = G.worn[k] === id; if (on === undefined) on = !wearing;
+  if (!on) { if (!wearing) return; if (k === 'back') { G.worn.back = null; const fits = G.usedSlots() <= G.capacity(); if (!fits) { G.worn.back = id; G.sfx('deny'); U.toast('Make room in your inventory before taking the backpack off', 'bad'); return; } } G.worn[k] = null; }
+  else { if (k === 'back' && G.worn.back) { const old = G.worn.back; G.worn.back = id; if (G.usedSlots() > G.capacity()) { G.worn.back = old; G.sfx('deny'); U.toast('The smaller pack cannot hold everything you carry', 'bad'); return; } } G.hot = G.hot.map((h) => (h === id ? null : h)); G.worn[k] = id; }
+  G.sfx('craft'); dirty = true; };
+G.armorValue = () => Math.min(0.8, Object.values(G.worn).reduce((a, id) => a + (id && ITEMS[id].armor || 0), 0));
+G.warmClothes = () => Object.values(G.worn).filter((id) => id && ITEMS[id].warm).length >= 2;
 G.slots = [];
-G.syncSlots = () => { const S = G.slots; for (let i = 0; i < S.length; i++) if (S[i] && !G.count(S[i])) S[i] = null; for (const k in G.inv) if (G.inv[k] > 0 && !S.includes(k)) { const i = S.indexOf(null); if (i >= 0) S[i] = k; else S.push(k); } while (S.length > 30 && S[S.length - 1] == null) S.pop(); };
+G.syncSlots = () => { const S = G.slots, belt = (k) => G.equipped(k); for (let i = 0; i < S.length; i++) if (S[i] && (!G.count(S[i]) || belt(S[i]))) S[i] = null; for (const k in G.inv) if (G.inv[k] > 0 && !belt(k) && !S.includes(k)) { const i = S.indexOf(null); if (i >= 0) S[i] = k; else S.push(k); } while (S.length > 30 && S[S.length - 1] == null) S.pop(); };
 G.thumb = (id) => Bd.thumb(renderer, id);
-G.homes = () => Bd.structs.filter((s) => s.done && (s.type === 'leanto' || s.type.startsWith('research')));
+G.crops = CROPS;
+G.homes = () => Bd.structs.filter((s) => s.done && (SPAWNS[s.type] || s.type.startsWith('research')));
 let dirty = false;
 
 // stations
@@ -130,7 +144,6 @@ G.useItem = (id) => {
   G.sfx('eat'); return true;
 };
 G.startBuild = (id) => { U.close(); Bd.start(id); U.toast(`Blueprint: ${STRUCT_BY_ID[id].n}`); };
-G.chestMove = (id, toChest) => { const c = G.chest; if (!c) return; if (toChest) { const n = G.count(id); G.take(id, n); c.inv[id] = (c.inv[id] || 0) + n; } else { const got = G.give(id, c.inv[id], true); c.inv[id] -= got; if (!c.inv[id]) delete c.inv[id]; } G.sfx('pickup'); };
 G.setSetting = (k, v) => { settings[k] = v; store.set(SET_KEY, settings); if (k === 'vol') audio.setVol(v); };
 G.onClose = () => { input.reset(); if (!input.touch) input.lock(); saveNow(); };
 G.saveInfo = () => `Day ${G.day() + 1}. ${cloudDoc ? 'Saved to this browser and to your Claude account.' : 'Saved to this browser.'} The game saves by itself every few seconds.`;
@@ -148,7 +161,7 @@ const cloudReady = (async () => {
 })();
 function snapshot() {
   const T = W.trees, felled = []; for (let i = 0; i < T.alive.length; i++) if (!T.alive[i]) felled.push(i);
-  return { v: 1, t: Date.now(), time: Math.round(G.time), P: { x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), yaw: +P.yaw.toFixed(3), hp: Math.round(P.hp), food: Math.round(P.food), water: Math.round(P.water) }, inv: G.inv, hot: G.hot, sel: G.sel, mags: G.mags, armor: G.armor, tech: [...G.tech], structs: Bd.save(), felled, nodes: W.nodes.filter((n) => !n.alive).map((n) => [n.id, +n.day.toFixed(2)]), cont: W.containers.filter((c) => c.day > -50 && c.id != null).map((c) => [c.id, +c.day.toFixed(2)]), pois: W.pois.filter((p) => p.found).map((p) => p.id), weather, spawn: G.spawn, pack: G.pack, slots: G.slots, drops: drops.map((d) => [d.id, d.n, +d.x.toFixed(2), +d.y.toFixed(2), +d.z.toFixed(2), +d.yaw.toFixed(2)]) };
+  return { v: 1, t: Date.now(), time: Math.round(G.time), P: { x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), yaw: +P.yaw.toFixed(3), hp: Math.round(P.hp), food: Math.round(P.food), water: Math.round(P.water) }, inv: G.inv, hot: G.hot, sel: G.sel, mags: G.mags, worn: G.worn, tech: [...G.tech], structs: Bd.save(), felled, nodes: W.nodes.filter((n) => !n.alive).map((n) => [n.id, +n.day.toFixed(2)]), cont: W.containers.filter((c) => c.day > -50 && c.id != null).map((c) => [c.id, +c.day.toFixed(2), c.box && !boxEmpty(c.box) ? c.box.slots : 0]), pois: W.pois.filter((p) => p.found).map((p) => p.id), weather, spawn: G.spawn, pack: G.pack, slots: G.slots, drops: drops.map((d) => [d.id, d.n, +d.x.toFixed(2), +d.y.toFixed(2), +d.z.toFixed(2), +d.yaw.toFixed(2)]) };
 }
 function saveNow(cloud) {
   if (!started || noSave || P.dead) return; const s = snapshot(), json = JSON.stringify(s); try { localStorage.setItem(SAVE_KEY, json); } catch (e) { /* ignore */ } lastSaveAt = performance.now(); dirty = false;
@@ -159,9 +172,9 @@ window.addEventListener('pagehide', () => saveNow(true));
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => { saveNow(true); return {}; }); } catch (e) { /* ignore */ }
 function applySave(s) {
   G.time = s.time || 0; Object.assign(P, s.P); P.stam = 100; P.vy = 0; P.dead = false; G.inv = s.inv || {}; for (const k in G.inv) if (!ITEMS[k]) delete G.inv[k];
-  G.hot = (s.hot || []).map((h) => (ITEMS[h] ? h : null)); while (G.hot.length < 8) G.hot.push(null); G.sel = s.sel || 0; G.mags = s.mags || {}; G.armor = s.armor || null; G.tech = new Set(s.tech || []);
+  G.hot = (s.hot || []).map((h) => (ITEMS[h] ? h : null)); while (G.hot.length < 8) G.hot.push(null); G.sel = s.sel || 0; G.mags = s.mags || {}; G.worn = { head: null, chest: null, legs: null, feet: null, back: null }; if (s.worn) for (const k in G.worn) G.worn[k] = s.worn[k] && ITEMS[s.worn[k]] ? s.worn[k] : null; else if (s.armor && ITEMS[s.armor] && ITEMS[s.armor].slot) G.worn[ITEMS[s.armor].slot] = s.armor; G.tech = new Set(s.tech || []);
   Bd.load(s.structs); for (const i of s.felled || []) W.fellTree(i, true); for (const [id, day] of s.nodes || []) if (W.nodes[id]) W.setNode(W.nodes[id], false, day);
-  for (const [id, day] of s.cont || []) if (W.containers[id]) W.containers[id].day = day; for (const id of s.pois || []) { const p = W.pois.find((q) => q.id === id); if (p) p.found = true; }
+  for (const [id, day, slots] of s.cont || []) if (W.containers[id]) { W.containers[id].day = day; W.containers[id].box = ensureBox('loot', { slots: slots || [] }); } for (const id of s.pois || []) { const p = W.pois.find((q) => q.id === id); if (p) p.found = true; }
   if (s.weather && WEATHER[s.weather.id]) weather = s.weather; G.slots = (s.slots || []).map((k) => (ITEMS[k] ? k : null)); for (const d of drops.slice()) removeDrop(d); for (const [id, n, x, y, z, yaw] of s.drops || []) if (ITEMS[id] && n > 0) addDrop(id, n, x, y, z, yaw); G.spawn = s.spawn || null; G.pack = s.pack || null; if (G.pack) placePack();
 }
 
@@ -315,7 +328,7 @@ function movePlayer(dt) {
   const sens = 0.0023 * settings.sens * (ads > 0.5 ? 0.55 : 1) * (camera.fov / 72);
   P.yaw -= input.lookX * sens; P.pitch = clamp(P.pitch - input.lookY * sens * (settings.invert ? -1 : 1), -1.5, 1.5);
   if (input.hit('crouch')) P.crouch = !P.crouch;
-  const wl = W.waterLevel(P.x, P.z), swim = P.y < wl - 1.15 && W.inWater(P.x, P.z); P.swim = swim; if (swim) P.crouch = false;
+  const wl = W.waterLevel(P.x, P.z), swim = P.y < wl - 1.15 && W.inWater(P.x, P.z); P.swim = swim; if (swim && input.hit('jump')) P.crouch = false;
   const sprint = input.sprint && input.my > 0.3 && P.stam > 1 && !P.crouch && !swim && ads < 0.5, speed = swim ? 2.5 : P.crouch ? 2.1 : sprint ? 7.4 : 4.5;
   const sn = Math.sin(P.yaw), cs = Math.cos(P.yaw), wxv = (input.mx * cs - input.my * sn) * speed, wzv = (-input.mx * sn - input.my * cs) * speed, acc = Math.min(1, dt * (P.ground || swim ? 12 : 3));
   P.vx += (wxv - P.vx) * acc; P.vz += (wzv - P.vz) * acc; P.moving = Math.hypot(P.vx, P.vz) > 0.6;
@@ -329,8 +342,10 @@ function movePlayer(dt) {
   const lad = !swim && Bd.ladderAt(P.x, P.y, P.z);
   if (lad) { P.vy = P.crouch ? -5 : input.my > 0.2 ? 3.4 : input.my < -0.2 ? -3.4 : 0; if (input.hit('jump')) P.vy = 5; P.ground = false; } else P.vy -= 20 * dt;
   P.y += P.vy * dt;
-  if (swim || (P.y < wl - 1.2 && W.inWater(P.x, P.z))) { if (P.y < wl - 1.25) { P.y = Math.max(ground, lerp(P.y, wl - 1.25, Math.min(1, dt * 6))); P.vy = Math.max(P.vy, -1); if (P.y <= wl - 1.2 && P.y > ground) { P.vy = 0; } } P.stam -= 2.5 * dt; P.stamWait = 0.5; if (P.stam <= 0) hurt(4 * dt, null, true); }
-  if (P.y <= ground) { if (P.vy < -13) hurt((-P.vy - 13) * 5, null); P.y = ground; P.vy = 0; P.ground = true; }
+  if (swim || (P.y < wl - 1.2 && W.inWater(P.x, P.z))) { if (P.crouch) { P.vy = 0; P.y = Math.max(ground, P.y - 2.2 * dt); } else if (P.y < wl - 1.25) { P.y = Math.max(ground, lerp(P.y, wl - 1.25, Math.min(1, dt * 3))); P.vy = Math.max(P.vy, -1); if (P.y <= wl - 1.2 && P.y > ground) { P.vy = 0; } } }
+  const under = W.inWater(P.x, P.z) && P.y + (P.crouch && !swim ? 1.05 : 1.65) < wl - 0.05;
+  P.o2 = under ? Math.max(0, P.o2 - dt * 100 / 30) : Math.min(100, P.o2 + dt * 45); if (under && P.o2 <= 0) hurt(7 * dt, null, true, 'Drowned');
+  if (P.y <= ground) { if (P.vy < -13) hurt((-P.vy - 13) * 5, null, false, 'Fell to your death'); P.y = ground; P.vy = 0; P.ground = true; }
   else if (P.ground && P.vy <= 0 && P.y - ground < 0.45) { P.y = ground; P.vy = 0; }
   else P.ground = false;
   if (P.moving && P.ground) { const pb = bob; bob += dt * (sprint ? 13 : P.crouch ? 6 : 9); if (Math.floor(pb / Math.PI) !== Math.floor(bob / Math.PI)) G.sfx('step'); }
@@ -338,9 +353,9 @@ function movePlayer(dt) {
   camera.position.set(P.x, lerp(camera.position.y, P.y + eye, Math.min(1, dt * 18)), P.z); if (Math.abs(camera.position.y - P.y - eye) > 1.2) camera.position.y = P.y + eye;
   camera.rotation.set(P.pitch + kick * 0.012, P.yaw, 0);
 }
-function hurt(d, from, quiet) {
-  if (P.dead) return; const armor = G.armor && from ? ITEMS[G.armor].armor : 0; P.hp -= d * (1 - armor); if (!quiet) { vigT = 0.5; G.sfx('hurt'); }
-  if (P.hp <= 0) die(from);
+function hurt(d, from, quiet, cause) {
+  if (P.dead) return; const armor = from ? G.armorValue() : 0; P.hp -= d * (1 - armor); if (!quiet) { vigT = 0.5; G.sfx('hurt'); }
+  if (P.hp <= 0) die(from, cause);
 }
 G.hurtPlayer = (d, m) => hurt(d, m);
 G.enemyShot = (m, hit) => {
@@ -350,18 +365,23 @@ G.enemyShot = (m, hit) => {
 G.hitStruct = (s, dmg, m) => { G.sfx('thud', m); burst(s.x, s.y + 1, s.z, 0x8a6a45, 5, 2, 9, 0.4); if (Bd.damage(s, dmg)) U.toast(`${s.def.n} destroyed`, 'bad'); dirty = true; };
 let packMesh = null;
 function placePack() { if (packMesh) scene.remove(packMesh); packMesh = null; if (!G.pack) return; packMesh = art.model('pack'); packMesh.position.set(G.pack.x, surfaceY(G.pack.x, G.pack.z, G.pack.y + 1.5), G.pack.z); packMesh.rotation.y = 0.7; scene.add(packMesh); }
-function die(from) {
-  P.dead = true; P.hp = 0; const lost = {}; for (const k of Object.keys(G.inv)) if (['res', 'ammo', 'food', 'med', 'seed'].includes(ITEMS[k].cat)) { lost[k] = G.inv[k]; delete G.inv[k]; }
-  G.pack = { x: P.x, y: Math.max(P.y, W.waterLevel(P.x, P.z)), z: P.z, inv: lost }; placePack();
-  $('deadMsg').textContent = `${from ? `Killed by a ${from.def.n.toLowerCase()}` : 'The island took you'} on day ${G.day() + 1}. Your tools stay with you. Materials, food and ammunition lie in your pack where you fell.`;
-  $('dead').hidden = false; input.unlock(); Bd.stop();
+const SPAWNS = { sleeping_bag: 'Sleeping bag', bed: 'Bed' };
+G.spawnPoints = () => Bd.structs.filter((s) => s.done && SPAWNS[s.type]);
+function die(from, cause) {
+  P.dead = true; P.hp = 0; Bd.stop(); input.unlock(); if (U.open) U.close();
+  const at = { x: P.x, z: P.z, y: P.y }, how = from ? `Killed by a ${from.def.n.toLowerCase()}` : cause || 'Died', kept = !!settings.keepInv;
+  if (!kept) { const lost = {}; for (const k of Object.keys(G.inv)) if (!G.equipped(k) && ['res', 'ammo', 'food', 'med', 'seed'].includes(ITEMS[k].cat)) { lost[k] = G.inv[k]; delete G.inv[k]; } if (Object.keys(lost).length) { G.pack = { x: P.x, y: Math.max(P.y, W.waterLevel(P.x, P.z)), z: P.z, inv: lost }; placePack(); } }
+  const where = (() => { let best = null, bd = 1e9; for (const p of W.pois) { const d = Math.hypot(p.x - at.x, p.z - at.z); if (d < bd) { bd = d; best = p; } } return best && bd < best.r + 60 ? `near ${best.n}` : 'in the wilds'; })();
+  const spots = G.spawnPoints().map((s) => ({ s, n: SPAWNS[s.type], d: Math.hypot(s.x - at.x, s.z - at.z) })).sort((a, b) => a.d - b.d);
+  G.deathInfo = { at, how, where, day: G.day() + 1, kept, spots };
+  U.showDeath(G.deathInfo);
 }
-function respawn() {
-  const s = G.spawn || startPos; P.x = s.x; P.z = s.z; P.y = s.y != null ? s.y : W.H(s.x, s.z); P.hp = 70; P.food = Math.max(P.food, 50); P.water = Math.max(P.water, 50); P.stam = 100; P.vy = 0; P.dead = false;
-  $('dead').hidden = true; M.clear(); const t = tod(); G.time += ((t < 7 ? 7 - t : 31 - t) / 24) * DAY; noSaveFix(); if (!input.touch) input.lock();
+function respawn(spot) {
+  const s = spot ? { x: spot.x + 0.6, z: spot.z + 0.6, y: spot.y + (spot.type === 'bed' ? 0.6 : 0.2) } : { ...startPos, y: null };
+  P.x = s.x; P.z = s.z; P.y = s.y != null ? s.y : W.H(s.x, s.z); P.hp = 70; P.food = Math.max(P.food, 50); P.water = Math.max(P.water, 50); P.stam = 100; P.o2 = 100; P.vy = 0; P.dead = false; P.crouch = false;
+  U.hideDeath(); M.clear(); const t = tod(); G.time += ((t < 7 ? 7 - t : 31 - t) / 24) * DAY; saveNow(true); if (!input.touch) input.lock();
 }
-const noSaveFix = () => { saveNow(true); };
-$('btnRespawn').addEventListener('click', respawn);
+G.respawnAt = (i) => { const info = G.deathInfo; if (!P.dead || !info) return; const spot = i < 0 ? null : info.spots[i] && Bd.structs.includes(info.spots[i].s) ? info.spots[i].s : null; respawn(spot); };
 
 // ---------------------------------------------------------------- items on the ground
 const drops = [];
@@ -382,6 +402,73 @@ function dropsUpdate(dt) {
   for (const d of drops) { if (!d.falling) continue; d.vy -= 18 * dt; d.m.position.y += d.vy * dt; d.m.rotation.y += d.spin * dt; if (d.m.position.y <= d.y) { d.m.position.y = d.y; d.yaw = d.m.rotation.y; d.falling = false; G.sfx('thud', d); } }
 }
 
+// ---------------------------------------------------------------- containers: fires, chests, collectors, plots, crates, bodies and packs
+const layouts = {};
+const layout = G.layout = (kind) => layouts[kind] || (layouts[kind] = (() => { let i = 0; return BOXES[kind].groups.map(([n, k, count, acc, ph]) => { const g = { n, k, start: i, count, acc, ph }; i += count; return g; }); })());
+const boxSize = (kind) => layout(kind).reduce((a, g) => a + g.count, 0);
+const capOf = (id) => (ITEMS[id].max === 1 ? 1 : 9999);
+const groupAt = (b, i) => layout(b.kind).find((g) => i >= g.start && i < g.start + g.count);
+const accepts = (b, i, id) => { const g = groupAt(b, i); return !!g && (g.acc === 'any' || (Array.isArray(g.acc) && g.acc.includes(id))); };
+// put n of an item into the groups with these keys (stacks first, then empty slots); returns what did not fit
+function boxAdd(b, id, n, keys) {
+  for (const pass of [0, 1]) for (const g of layout(b.kind)) { if (!keys.includes(g.k)) continue; for (let i = g.start; i < g.start + g.count && n > 0; i++) { const a = b.slots[i]; if (pass === 0 && a && a.id === id && a.n < capOf(id)) { const mv = Math.min(n, capOf(id) - a.n); a.n += mv; n -= mv; } else if (pass === 1 && !a) { const mv = Math.min(n, capOf(id)); b.slots[i] = { id, n: mv }; n -= mv; } } }
+  return n;
+}
+function makeBox(kind, items) { const b = { kind, slots: Array(boxSize(kind)).fill(null), on: false, burn: 0, fuelT: 1, prog: [] }; if (items) for (const k in items) if (ITEMS[k] && items[k] > 0) boxAdd(b, k, items[k], ['store', 'in', 'fuel', 'out', 'seed']); return b; }
+// containers from older saves (a chest was a plain item list) become slot containers
+function ensureBox(kind, inv) { if (inv && Array.isArray(inv.slots)) { inv.kind = kind; while (inv.slots.length < boxSize(kind)) inv.slots.push(null); inv.slots = inv.slots.map((a) => (a && ITEMS[a.id] && a.n > 0 ? a : null)); inv.prog = inv.prog || []; return inv; } return makeBox(kind, inv); }
+const boxItems = (b) => { const o = {}; if (b && b.slots) for (const a of b.slots) if (a) o[a.id] = (o[a.id] || 0) + a.n; return o; };
+const boxEmpty = (b) => !b || !b.slots.some(Boolean);
+// one tick of a campfire or furnace: burn fuel, leave charcoal, cook or smelt each input slot
+function tickFire(b, dt, recipes) {
+  const L = layout(b.kind), fuel = L.find((g) => g.k === 'fuel'), inp = L.find((g) => g.k === 'in'); let guard = 0;
+  while (dt > 1e-6 && b.on && guard++ < 4000) {
+    if (b.burn <= 0) { const f = b.slots[fuel.start]; if (!f || !FUEL[f.id]) { b.on = false; b.prog = []; break; } const F = FUEL[f.id]; f.n--; if (!f.n) b.slots[fuel.start] = null; b.burn = b.fuelT = F.t; b.char = F.char; }
+    const step = Math.min(dt, b.burn, 1); dt -= step; b.burn -= step;
+    if (b.burn <= 0 && b.char) boxAdd(b, 'charcoal', b.char, ['out']);
+    for (let i = 0; i < inp.count; i++) { const si = inp.start + i, a = b.slots[si], R = a && recipes[a.id]; if (!R || a.n < R.need) { b.prog[i] = 0; continue; } b.prog[i] = (b.prog[i] || 0) + step; if (b.prog[i] >= R.t) { if (boxAdd(b, R.out, 1, ['out']) === 0) { a.n -= R.need; if (!a.n) b.slots[si] = null; b.prog[i] = 0; } else b.prog[i] = R.t; } }
+  }
+}
+function stationsUpdate(dt) {
+  for (const s of Bd.structs) {
+    if (!s.done || !s.inv || !s.inv.slots) continue;
+    if (s.type === 'campfire' || s.type === 'furnace') tickFire(s.inv, dt, BOXES[s.type].fire);
+    else if (s.type === 'collector') { const b = s.inv; b.fill = (b.fill || 0) + dt; if (b.fill < 1.5) continue; b.fill = 0; const g = layout('collector')[0]; for (let i = g.start; i < g.start + g.count; i++) { const a = b.slots[i]; if (a && s.water >= 1 && boxAdd(b, 'water_bottle', 1, ['out']) === 0) { a.n--; if (!a.n) b.slots[i] = null; s.water--; break; } } }
+  }
+}
+G.boxInfo = (b) => ({ fuel: b.burn > 0 ? b.burn / (b.fuelT || 1) : 0, prog: (i) => { const g = layout(b.kind).find((q) => q.k === 'in'), a = b.slots[g.start + i], R = a && BOXES[b.kind] && BOXES[b.kind].fire && BOXES[b.kind].fire[a.id]; return R ? Math.min(1, (b.prog[i] || 0) / R.t) : 0; } });
+function openLoot(L) { G.loot = L; input.unlock(); U.openLoot(L); G.sfx('ui'); }
+function afterLoot() {
+  const L = G.loot; if (!L) return;
+  if (L.kind === 'plot') { const s = L.ref, a = L.box.slots[0]; if (a) { if (!s.crop) { s.crop = { id: ITEMS[a.id].crop, g: 0, wet: wx.rain > 0.2 ? 1 : 0.5 }; Bd.setCrop(s); a.n--; G.sfx('place'); U.toast(`Planted ${CROPS[s.crop.id].n.toLowerCase()}`); } if (a.n > 0) G.give(a.id, a.n, true); L.box.slots[0] = null; } }
+  if (L.kind === 'pack' && boxEmpty(L.box)) { G.pack = null; placePack(); }
+  dirty = true;
+}
+// move items between the inventory (g:/b: slots) and the open container (c: slots)
+G.lootMove = (id, from, to) => {
+  const L = G.loot; if (!L || !L.box) return; const b = L.box, [fk, fi] = from.split(':'), [tk, ti] = to.split(':');
+  const deny = (m) => { G.sfx('deny'); if (m) U.toast(m, 'bad'); };
+  if (tk === 'c') {
+    const j = +ti; if (!accepts(b, j, id)) return deny(groupAt(b, j) && groupAt(b, j).acc === null ? 'Take items out; nothing goes in there' : `${ITEMS[id].n} does not go there`);
+    if (fk === 'c') { const i = +fi; if (i === j) return; const a = b.slots[i], t = b.slots[j]; if (!a) return; if (t && t.id === a.id) { const mv = Math.min(a.n, capOf(a.id) - t.n); t.n += mv; a.n -= mv; if (!a.n) b.slots[i] = null; } else { if (t && !accepts(b, i, t.id)) return deny(); b.slots[j] = a; b.slots[i] = t; } }
+    else { let t = b.slots[j]; if (t && t.id !== id) { const got = G.give(t.id, t.n, true); if (got < t.n) { t.n -= got; return deny('Your inventory is full'); } b.slots[j] = t = null; } const n = Math.min(G.count(id), capOf(id) - (t ? t.n : 0)); if (n <= 0) return deny(); G.take(id, n); if (t) t.n += n; else b.slots[j] = { id, n }; }
+  } else if (fk === 'c') { const i = +fi, a = b.slots[i]; if (!a) return; const got = G.give(a.id, a.n, true); a.n -= got; if (!a.n) b.slots[i] = null; if (!got) return deny('Your inventory is full'); if (tk === 'b' && !['res', 'ammo', 'armor'].includes(ITEMS[a.id].cat)) G.assign(+ti, a.id); }
+  else return;
+  G.sfx('pickup'); afterLoot();
+};
+// a click moves a whole stack across: into the first slot that takes it, or back into the inventory
+G.lootQuick = (id, from) => {
+  const L = G.loot; if (!L || !L.box) return; const b = L.box;
+  if (from[0] === 'c') return G.lootMove(id, from, 'g:0');
+  let target = -1; for (const pass of [0, 1]) { for (const g of layout(b.kind)) { if (g.acc === null) continue; for (let i = g.start; i < g.start + g.count; i++) { const a = b.slots[i]; if (!accepts(b, i, id)) continue; if ((pass === 0 && a && a.id === id && a.n < capOf(id)) || (pass === 1 && !a)) { target = i; break; } } if (target >= 0) break; } if (target >= 0) break; }
+  if (target < 0) { G.sfx('deny'); U.toast(layout(b.kind).some((g) => Array.isArray(g.acc) ? g.acc.includes(id) : g.acc === 'any') ? 'No room' : `${ITEMS[id].n} does not go in here`, 'bad'); return; }
+  G.lootMove(id, from, 'c:' + target);
+};
+G.lootTakeAll = () => { const L = G.loot; if (!L || !L.box) return; let any = false; L.box.slots.forEach((a, i) => { if (!a) return; const got = G.give(a.id, a.n, true); a.n -= got; if (got) any = true; if (!a.n) L.box.slots[i] = null; }); if (!boxEmpty(L.box)) U.toast('Your inventory is full', 'bad'); if (any) G.sfx('pickup'); afterLoot(); };
+G.lootFire = () => { const L = G.loot; if (!L || !L.box) return; const b = L.box; if (b.on) { b.on = false; G.sfx('thud'); return; } const f = b.slots[layout(b.kind)[0].start]; if (b.burn <= 0 && !(f && FUEL[f.id])) { G.sfx('deny'); U.toast('Put wood in the fuel slot first', 'bad'); return; } b.on = true; G.sfx('craft'); dirty = true; };
+G.collectorDrink = () => { const s = G.loot && G.loot.ref; if (!s || s.water < 1) return; s.water--; P.water = Math.min(100, P.water + 35); G.sfx('eat'); };
+G.plotAct = (what) => { const s = G.loot && G.loot.ref; if (!s || !s.crop) return; if (what === 'harvest' && s.crop.g >= 1) { const c = CROPS[s.crop.id], k = s.type === 'plot' ? 1 : 0.66; for (const id in c.give) G.give(id, Math.max(1, Math.round(ri(c.give[id][0], c.give[id][1]) * k))); s.crop = null; Bd.setCrop(s); G.sfx('pickup'); } else if (what === 'water' && s.crop.wet <= 0) { if (G.take('water_bottle')) { G.give('empty_bottle', 1, true); s.crop.wet = 1; G.sfx('eat'); } else { G.sfx('deny'); U.toast('You need a water bottle', 'bad'); } } dirty = true; };
+
 // ---------------------------------------------------------------- interaction
 let target = null, targetT = 0;
 function findTarget() {
@@ -389,7 +476,7 @@ function findTarget() {
   let bestDrop = null, bdd = 0.42;
   for (const q of drops) { const fx = q.x - ox, fy = q.y + q.h * 0.5 - oy, fz = q.z - oz; if (Math.abs(fx) + Math.abs(fz) > 6) continue; const t = fx * d.x + fy * d.y + fz * d.z; if (t < 0.2 || t > 3.6) continue; const dist = Math.hypot(fx - d.x * t, fy - d.y * t, fz - d.z * t) - Math.min(0.35, q.r * 0.7); if (dist < bdd) { bdd = dist; bestDrop = q; } }
   if (bestDrop) return { kind: 'drop', d: bestDrop };
-  const s = Bd.target(ox, oy, oz, d.x, d.y, d.z, 4.2); if (s) return { kind: 'struct', s };
+  const s = Bd.target(ox, oy, oz, d.x, d.y, d.z, 5); if (s) return { kind: 'struct', s };
   const fx = ox + d.x * 1.5, fz = oz + d.z * 1.5, fy = oy + d.y * 1.5;
   const c = M.corpseNear(fx, fy - 0.6, fz, 2.2); if (c) return { kind: 'corpse', m: c };
   if (G.pack && Math.hypot(G.pack.x - fx, G.pack.z - fz) < 2.2) return { kind: 'pack' };
@@ -416,20 +503,16 @@ function promptFor(t) {
     }
     if (s.type === 'ladder') return `Ladder<span class="need">Walk into it to climb, back off to climb down</span>`;
     const tierHint = s.def.tiered ? `<span class="need">${TIERS[s.tier].n}${Bd.upgradeInfo(s) ? ' · hold a hammer to upgrade' : ''}</span>` : '';
-    if (s.type === 'chest') return K('E', 'Open chest') + hp; if (s.type.startsWith('research')) return K('E', `Use ${n}`) + hp; if (s.type === 'door' || s.type === 'gate') return K('E', s.open ? 'Close' : 'Open') + tierHint + hp;
-    if (s.type === 'leanto') return K('E', 'Sleep until morning') + '<span class="need">Sets your respawn point</span>'; if (s.type === 'campfire' || s.type === 'furnace') return K('E', s.type === 'campfire' ? 'Cook and burn' : 'Smelt') + hp;
-    if (s.type === 'collector') return s.water > 0 ? K('E', `Drink rainwater`) + `<span class="need">${s.water} of 6 measures</span>` : `Rain collector<span class="need">Empty. Fills when it rains.</span>`;
-    if (s.type === 'plot' || s.type === 'planter') {
-      if (!s.crop) { const sd = seedFor(); return sd ? K('E', `Plant ${ITEMS[sd].n}`) : `${n}<span class="need">You have no seeds. Search farms and houses, or harvest wild flax and berries.</span>`; }
-      const c = CROPS[s.crop.id]; if (s.crop.g >= 1) return K('E', `Harvest ${c.n}`);
-      return (s.crop.wet <= 0 && G.count('water_bottle') ? K('E', `Water the ${c.n.toLowerCase()}`) : c.n) + `<span class="need">${Math.floor(s.crop.g * 100)}% grown · ${s.crop.wet > 0 ? 'soil is moist' : 'soil is dry, growing slowly'}</span>`;
-    }
+    if (s.type === 'chest') return K('E', 'Open chest') + hp; if (s.type.startsWith('research')) return K('E', `Open ${n}`) + hp; if (s.type === 'door' || s.type === 'gate') return K('E', s.open ? 'Close' : 'Open') + tierHint + hp;
+    if (s.type === 'sleeping_bag' || s.type === 'bed') return K('E', 'Sleep until morning') + '<span class="need">You can choose to wake up here when you die</span>'; if (s.type === 'campfire' || s.type === 'furnace') { const b = s.inv && s.inv.slots ? s.inv : null, f = b && b.slots[0]; return K('E', `Open ${n.toLowerCase()}`) + `<span class="need">${b && b.on ? 'Burning' : 'Not lit'}${f ? ` · ${ITEMS[f.id].n} ×${f.n}` : ' · no fuel'}</span>` + hp; }
+    if (s.type === 'collector') return K('E', 'Open rain collector') + `<span class="need">${Math.floor(s.water)} of 6 measures of water</span>`;
+    if (s.type === 'plot' || s.type === 'planter') return K('E', `Open ${n.toLowerCase()}`) + `<span class="need">${s.crop ? `${CROPS[s.crop.id].n} · ${s.crop.g >= 1 ? 'ready to harvest' : Math.floor(s.crop.g * 100) + '% grown'}` : 'Nothing planted'}</span>`;
     return n + tierHint + hp;
   }
   if (t.kind === 'drop') { const it = ITEMS[t.d.id]; return `<span class="iname">${it.n}${t.d.n > 1 ? ` <b>×${t.d.n}</b>` : ''}</span>` + K('E', 'Pick up'); }
-  if (t.kind === 'corpse') return K('E', `Search ${t.m.def.n.toLowerCase()}`);
-  if (t.kind === 'pack') return K('E', 'Recover your pack');
-  if (t.kind === 'crate') return G.dayFloat() - t.c.day < 6 ? `${t.c.n}<span class="need">Already searched</span>` : K('E', `Search ${t.c.n.toLowerCase()}`);
+  if (t.kind === 'corpse') return K('E', `Search ${t.m.def.n.toLowerCase()}`) + (t.m.box ? '<span class="need">Searched</span>' : '');
+  if (t.kind === 'pack') return K('E', 'Open your backpack');
+  if (t.kind === 'crate') { const fresh = G.dayFloat() - t.c.day >= 6; return !fresh && boxEmpty(t.c.box) ? `${t.c.n}<span class="need">Empty. Restocks in ${Math.ceil(6 - (G.dayFloat() - t.c.day))} days</span>` : K('E', `Open ${t.c.n.toLowerCase()}`); }
   if (t.kind === 'node') { const nt = W.NODE_TYPES[t.n.type]; return K('E', `${nt.verb} ${nt.n.toLowerCase()}`); }
   if (t.kind === 'water') return t.fresh ? K('E', 'Drink') : 'Sea water<span class="need">Too salty to drink</span>';
   return '';
@@ -448,25 +531,17 @@ function useTarget(t, first) {
       if (pay(up.cost)) { Bd.upgrade(s, up.tier); G.sfx('done'); burst(s.x, s.y + 1.2, s.z, 0xc9a26a, 14, 3, 9, 0.6); swingT = swingDur = 0.4; swingHit = true; dirty = true; } else { G.sfx('deny'); U.toast(`Not enough ${ITEMS[Object.keys(up.cost)[0]].n.toLowerCase()}`, 'bad'); }
       return;
     }
-    if (s.type === 'chest') { G.chest = s; input.unlock(); U.show('chest'); }
-    else if (s.type.startsWith('research')) { input.unlock(); U.show('research'); }
-    else if (s.type === 'campfire' || s.type === 'furnace') { input.unlock(); U.show('craft'); }
+    if (s.type === 'chest' || s.type === 'campfire' || s.type === 'furnace' || s.type === 'collector' || s.type === 'plot' || s.type === 'planter') { s.inv = ensureBox(s.type, s.inv); openLoot({ kind: s.type === 'planter' ? 'plot' : s.type, box: s.inv, ref: s, title: BOXES[s.type].title }); }
+    else if (s.type.startsWith('research')) openLoot({ kind: 'research', ref: s, title: s.def.n });
     else if (s.type === 'door' || s.type === 'gate') { Bd.toggle(s); G.sfx('place'); }
-    else if (s.type === 'leanto') { const h = tod(); G.spawn = { x: P.x, y: P.y, z: P.z }; if (h > 19 || h < 5) { const skip = ((h < 6 ? 6 - h : 30 - h) / 24) * DAY; G.time += skip; growCrops(skip); P.stam = 100; P.food = Math.max(5, P.food - 12); P.water = Math.max(5, P.water - 14); P.hp = Math.min(100, P.hp + 25); M.clear(); U.toast('You slept until dawn', 'big'); } else U.toast('Respawn point set. You can only sleep after dark.'); saveNow(true); }
-    else if (s.type === 'collector' && s.water > 0) { s.water--; P.water = Math.min(100, P.water + 35); G.sfx('eat'); }
-    else if (s.type === 'plot' || s.type === 'planter') {
-      if (!s.crop) { const sd = seedFor(); if (sd) { G.take(sd); s.crop = { id: ITEMS[sd].crop, g: 0, wet: wx.rain > 0.2 ? 1 : 0.5 }; Bd.setCrop(s); G.sfx('place'); } }
-      else if (s.crop.g >= 1) { const c = CROPS[s.crop.id], k = s.type === 'plot' ? 1 : 0.66; for (const id in c.give) G.give(id, Math.max(1, Math.round(ri(c.give[id][0], c.give[id][1]) * k))); s.crop = null; Bd.setCrop(s); G.sfx('pickup'); }
-      else if (s.crop.wet <= 0 && G.take('water_bottle')) { G.give('empty_bottle', 1, true); s.crop.wet = 1; G.sfx('eat'); U.toast('Watered'); }
-      dirty = true;
-    }
+    else if (s.type === 'sleeping_bag' || s.type === 'bed') { const h = tod(); if (h > 19 || h < 5) { const skip = ((h < 6 ? 6 - h : 30 - h) / 24) * DAY; G.time += skip; growCrops(skip); stationsUpdate(skip); P.stam = 100; P.food = Math.max(5, P.food - 12); P.water = Math.max(5, P.water - 14); P.hp = Math.min(100, P.hp + (s.type === 'bed' ? 45 : 25)); M.clear(); U.toast('You slept until dawn', 'big'); } else U.toast('You can only sleep after dark. You can wake up here after dying.'); saveNow(true); }
     return;
   }
   if (!first) return;
   if (t.kind === 'drop') { const q = t.d; if (!drops.includes(q)) return; const got = G.give(q.id, q.n); q.n -= got; if (q.n <= 0) removeDrop(q); if (got) { G.sfx('pickup'); dirty = true; } targetT = 0; return; }
-  if (t.kind === 'corpse') { giveAll(M.loot(t.m)); G.sfx('pickup'); }
-  else if (t.kind === 'pack') { giveAll(G.pack.inv); G.pack = null; placePack(); G.sfx('pickup'); }
-  else if (t.kind === 'crate') { if (G.dayFloat() - t.c.day < 6) return; t.c.day = G.dayFloat(); giveAll(rollLoot(LOOT[t.c.tier], 2 + t.c.tier)); G.sfx('pickup'); }
+  if (t.kind === 'corpse') { if (!t.m.box) t.m.box = makeBox('loot', M.loot(t.m)); openLoot({ kind: 'loot', box: t.m.box, ref: t.m, title: t.m.def.n, sub: 'Body' }); }
+  else if (t.kind === 'pack') { G.pack.inv = ensureBox('loot', G.pack.inv); openLoot({ kind: 'pack', box: G.pack.inv, title: 'Your backpack', sub: 'Dropped when you died' }); }
+  else if (t.kind === 'crate') { const c = t.c; if (G.dayFloat() - c.day >= 6) { c.day = G.dayFloat(); c.box = makeBox('loot', rollLoot(LOOT[c.tier], 2 + c.tier)); } if (!c.box) return; openLoot({ kind: 'loot', box: c.box, ref: c, title: c.n }); }
   else if (t.kind === 'node') { const nt = W.NODE_TYPES[t.n.type]; for (const k in nt.give) { const n = ri(nt.give[k][0], nt.give[k][1]); if (n) G.give(k, n); } if (nt.rare && Math.random() < nt.rare[1]) G.give(nt.rare[0], 1); W.setNode(t.n, false, G.dayFloat()); G.sfx('pickup'); }
   else if (t.kind === 'water' && t.fresh) { P.water = Math.min(100, P.water + 30); G.sfx('eat'); }
 }
@@ -518,7 +593,7 @@ function lightsUpdate(dt, t) {
   for (const pl of pool) pl.intensity = (pl.userData.p || 0) * (pl.userData.f ? 0.85 + Math.sin(t * 11 + pl.position.x) * 0.1 + Math.random() * 0.08 : 1);
   handLight.intensity = torchOn ? 23 + Math.sin(t * 13) * 3 : 0; flash.intensity = flashOn ? 130 : 0;
   emberT -= dt; if (emberT <= 0) { emberT = 0.07; for (const l of lightList) if (l.flick && Math.abs(l.x - P.x) + Math.abs(l.z - P.z) < 60) { burst(l.x + rnd(-0.15, 0.15), l.y - 0.7, l.z + rnd(-0.15, 0.15), Math.random() < 0.5 ? 0xffb040 : 0xff6a20, 2, 0.5, -3.2, 0.7); if (Math.random() < 0.35) burst(l.x, l.y - 0.2, l.z, 0x6a6660, 1, 0.4, -1.6, 2.4); } }
-  P.lit = torchOn || flashOn || !!nearStruct((s) => s.type === 'campfire' || s.type === 'lamp', 9);
+  P.lit = torchOn || flashOn || !!nearStruct((s) => (s.type === 'campfire' || s.type === 'lamp') && Bd.burning(s), 9);
 }
 
 // ---------------------------------------------------------------- survival
@@ -526,11 +601,11 @@ let poiT = 0, statT = 0, zone = '';
 function survival(dt) {
   const sprinting = input.sprint && P.moving;
   P.food = Math.max(0, P.food - dt * 0.062 * (sprinting ? 1.5 : 1)); P.water = Math.max(0, P.water - dt * 0.09 * (sprinting ? 1.4 : 1) * (wx.rain > 0.3 ? 0.7 : 1));
-  const nearFire = !!nearStruct((s) => s.type === 'campfire' || s.type === 'furnace', 7), warm = (G.armor && ITEMS[G.armor].warm) || nearFire || torchOn;
+  const nearFire = !!nearStruct((s) => (s.type === 'campfire' || s.type === 'furnace') && Bd.burning(s), 7), warm = G.warmClothes() || nearFire || torchOn;
   const roofed = wx.rain > 0.25 && W.ray(P.x, P.y + 1.8, P.z, 0, 1, 0, 14) < 14, soaked = wx.rain > 0.25 && !roofed && !P.swim;
   const cold = (P.y > 150 || (soaked && G.isNight()) || (P.y > 110 && wx.rain > 0.25)) && !warm;
-  if (P.food <= 0 || P.water <= 0) hurt(1.3 * dt, null, true); else if (P.food > 35 && P.water > 35 && !cold) P.hp = Math.min(100, P.hp + dt * 0.7);
-  if (cold) hurt(0.9 * dt, null, true);
+  if (P.food <= 0 || P.water <= 0) hurt(1.3 * dt, null, true, P.food <= 0 ? 'Starved' : 'Died of thirst'); else if (P.food > 35 && P.water > 35 && !cold) P.hp = Math.min(100, P.hp + dt * 0.7);
+  if (cold) hurt(0.9 * dt, null, true, 'Froze to death');
   P.stamWait -= dt; if (P.stamWait <= 0) P.stam = Math.min(100, P.stam + dt * 16 * (soaked && !warm ? 0.6 : 1) * (P.food < 15 ? 0.5 : 1)); P.stam = Math.max(0, P.stam);
   statT -= dt; if (statT <= 0) { statT = 0.5; const st = []; if (P.food < 15) st.push('Starving'); if (P.water < 15) st.push('Dehydrated'); if (cold) st.push('Freezing'); else if (soaked && !warm) st.push('Soaked'); if (P.swim) st.push('Swimming'); U.status(st); }
   poiT -= dt; if (poiT <= 0) {
@@ -578,7 +653,7 @@ function frame(now) {
     // interaction
     targetT -= dt; if (targetT <= 0) { targetT = 0.1; target = Bd.placing ? null : findTarget(); U.prompt(!input.touch && !input.locked && !input.dragLook ? '<kbd>CLICK</kbd>Click the game to capture the mouse' : promptFor(target)); }
     useT -= dt; if (input.hit('use')) useTarget(target, true); else if (input.use && target && target.kind === 'struct' && !target.s.done) useTarget(target, false);
-    if (input.hit('dismantle')) dismT = 0.001; if (dismT > 0 && target && target.kind === 'struct') { dismT += dt; if (dismT > 0.7) { const s = target.s; const sp = Bd.spent(s); for (const k in sp) { const n = s.done ? Math.floor(sp[k] * 0.5) : s.prog[k] || 0; if (n) G.give(k, n); } if (s.inv) giveAll(s.inv); Bd.remove(s); G.sfx('thud'); dismT = 0; target = null; dirty = true; } } else dismT = 0;
+    if (input.hit('dismantle')) dismT = 0.001; if (dismT > 0 && target && target.kind === 'struct') { dismT += dt; if (dismT > 0.7) { const s = target.s; const sp = Bd.spent(s); for (const k in sp) { const n = s.done ? Math.floor(sp[k] * 0.5) : s.prog[k] || 0; if (n) G.give(k, n); } if (s.inv) giveAll(s.inv.slots ? boxItems(s.inv) : s.inv); Bd.remove(s); G.sfx('thud'); dismT = 0; target = null; dirty = true; } } else dismT = 0;
     if (dismT > 0 && !inputHeldX()) dismT = 0;
     survival(dt); growCrops(dt); M.update(dt); arrowsUpdate(dt); poseVM(dt, w);
     if (input.hit('pack')) { input.unlock(); U.show('pack'); } else if (input.hit('build')) { if (Bd.placing) Bd.stop(); else { input.unlock(); U.show('build'); } } else if (input.hit('map')) { input.unlock(); U.show('map'); } else if (input.hit('menu')) { input.unlock(); U.show('system'); }
@@ -587,11 +662,12 @@ function frame(now) {
     if (hitT > 0) { hitT -= dt; } $('hitm').style.opacity = hitT > 0 ? 1 : 0; if (vigT > 0) vigT -= dt; $('vig').style.opacity = Math.max(vigT * 1.6, P.hp < 30 ? 0.5 - P.hp / 60 : 0);
     audio.ambient(dt, G.isNight(), P.y, zone === 'Hollowpine forest' || zone === 'Mountain slopes');
   } else if (started && U.open) { if (input.hit('menu') || input.hit('pack')) U.close(); else if (input.hit('map')) { if (U.tab === 'map') U.close(); else { U.tab = 'map'; U.render(); } } else if (input.hit('build')) { if (U.tab === 'build') U.close(); else { U.tab = 'build'; U.render(); } } }
-  if (art) art.prewarm(started ? 1 : 3); dropsUpdate(dt); fliesUpdate(dt, t);
+  if (art) art.prewarm(started ? 1 : 3); dropsUpdate(dt); fliesUpdate(dt, t); if (started && !P.dead) stationsUpdate(dt);
+  if (started && U.open && G.loot) { lootT -= dt; if (lootT <= 0) { lootT = 0.35; U.refreshLoot(); } }
   skyUpdate(active || !started ? dt : 0); lightsUpdate(dt, t); fxUpdate(dt); Bd.update(t); W.update(dt, P.x, P.z, t, Q.near);
   draw(); input.consume();
 }
-let placePrev = false;
+let placePrev = false, lootT = 0;
 const xKeys = new Set(); window.addEventListener('keydown', (e) => xKeys.add(e.code)); window.addEventListener('keyup', (e) => xKeys.delete(e.code)); const inputHeldX = () => xKeys.has('KeyX');
 
 // ---------------------------------------------------------------- boot
@@ -617,5 +693,5 @@ setTimeout(async () => {
   const bc = $('btnContinue'), bn = $('btnNew'); bn.disabled = false;
   if (save && save.v === 1) { bc.hidden = false; bc.onclick = () => begin(save); bn.classList.add('ghost'); let armed = false; bn.onclick = () => { if (!armed) { armed = true; bn.textContent = 'Erase the save and start over?'; return; } G.newGame(); }; }
   else bn.onclick = () => begin(null);
-  window.__hp = { G, W, Bd, M, P, begin, input, renderer, scene, camera, wx, drops, art, findTarget: () => findTarget(), testFlies: () => { fA = 1; zone = 'Hollowpine forest'; }, setWeather: (id) => { weather = { id, t: 300 }; } };
+  window.__hp = { G, W, Bd, M, P, begin, input, renderer, scene, camera, wx, drops, art, findTarget: () => findTarget(), testFlies: () => { fA = 1; zone = 'Hollowpine forest'; }, tickStations: (dt) => stationsUpdate(dt), setWeather: (id) => { weather = { id, t: 300 }; } };
 }, 60);

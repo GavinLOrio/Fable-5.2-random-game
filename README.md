@@ -42,7 +42,11 @@ You wash ashore on a 2 km wide island: mostly pine forest, with the abandoned to
 
 - Survive: health, food, water and stamina; day and night; weather on a random timer (clear, overcast, rain, thunderstorm, fog, snow up high) that changes visibility, enemy sight, cold, rain collectors and crops.
 - Gather and craft: fell trees and fallen logs, mine rock and ore, pick plants (wild flax has blue flowers), hunt, search crates and wrecks.
-- Inventory: slot grid, belt and clothing slot with drag and drop. Every item has its own 3D model, used for its inventory picture and when it lies on the ground. Drop items (or drag them out of the inventory) and they land in front of you; look at one to see its name and press E to pick it up. Anything that does not fit in a full inventory falls to the ground. Dropped items are saved.
+- Inventory: a 24-slot grid (items stack, logs 60 to a slot, most materials 500) plus an 8-slot belt; belt and worn items do not take grid space. Backpacks (small, large, military) add 6, 12 or 18 slots. Armor is worn per body part (head, chest, legs, feet) in cloth, hide, field and tactical sets; protection adds up and two warm pieces keep out the cold.
+- Every item has its own 3D model, used for its inventory picture and when it lies on the ground. Drop items (or drag them out of the inventory) and they land in front of you; look at one to see its name and press E to pick it up. Anything that does not fit falls to the ground. Dropped items are saved.
+- Containers open on a loot screen with your inventory beside them. Campfires and furnaces have a fuel slot, input slots and output slots and run while lit: campfires cook meat, potatoes and corn, furnaces smelt ore and scrap into metal, and burned logs leave charcoal. Chests store 18 stacks; rain collectors fill empty bottles; garden plots and planters take a seed; crates, bodies and your dropped backpack are looted slot by slot.
+- Sleeping bags and beds: sleep through the night, and when you die the map shows where and how, with a choice of which bag or bed (or the beach) to wake up at. The map always marks your bags and beds with their distance. A setting keeps your whole inventory on death.
+- Swimming costs no health. Press C to dive; an oxygen bar drains only while your head is under water, and you start to drown when it runs out.
 - Build: pick a blueprint, place its ghost, then carry materials to it piece by piece. Foundations, floors, walls, doors, stairs and roofs snap together and go up in thatch; a building hammer upgrades each piece to wood, stone and metal. High walls and climbable ladders for the perimeter; enemies attack what you build.
 - Research: three research tables, each dearer than the last, unlock blueprints for scrap: iron tools and black-powder guns, war-era firearms, then modern weapons and armor.
 - Farm: garden plots on open ground and planter boxes inside your base, seven crops, watering and rain.
@@ -52,7 +56,7 @@ You wash ashore on a 2 km wide island: mostly pine forest, with the abandoned to
 | Action | Keyboard and mouse | Touch |
 | --- | --- | --- |
 | Move, look | WASD, mouse (click to capture) | Left stick, drag the right side |
-| Sprint, jump, crouch | Shift, Space, C | Push the stick fully, Jump, Low |
+| Sprint, jump, crouch (dive) | Shift, Space, C | Push the stick fully, Jump, Low |
 | Swing, fire, place | Left click | Hit |
 | Aim | Right click | Aim |
 | Use, gather, add material | E (hold on blueprints) | Use |
