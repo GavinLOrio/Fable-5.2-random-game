@@ -1,0 +1,7 @@
+# Godot cache and local settings
+.godot/
+*.translation
+export_presets.cfg
+# Large downloaded asset packs stay out of git; see assets/README.md
+assets/third_party/*
+!assets/third_party/README.md

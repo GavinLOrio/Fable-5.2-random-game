@@ -1,0 +1,176 @@
+{
+ "campfire": {
+  "title": "Campfire",
+  "fire": {
+   "raw_meat": {
+    "out": "cooked_meat",
+    "t": 14,
+    "need": 1
+   },
+   "potato": {
+    "out": "baked_potato",
+    "t": 16,
+    "need": 1
+   },
+   "corn": {
+    "out": "roast_corn",
+    "t": 14,
+    "need": 1
+   }
+  },
+  "groups": [
+   [
+    "Fuel",
+    "fuel",
+    1,
+    [
+     "log",
+     "stick"
+    ],
+    "Wood"
+   ],
+   [
+    "Cooking",
+    "in",
+    3,
+    [
+     "raw_meat",
+     "potato",
+     "corn"
+    ],
+    "Raw food"
+   ],
+   [
+    "Output",
+    "out",
+    4,
+    null
+   ]
+  ]
+ },
+ "furnace": {
+  "title": "Furnace",
+  "fire": {
+   "iron_ore": {
+    "out": "metal",
+    "t": 10,
+    "need": 2
+   },
+   "scrap": {
+    "out": "metal",
+    "t": 12,
+    "need": 5
+   }
+  },
+  "groups": [
+   [
+    "Fuel",
+    "fuel",
+    1,
+    [
+     "log",
+     "stick"
+    ],
+    "Wood"
+   ],
+   [
+    "Smelting",
+    "in",
+    3,
+    [
+     "iron_ore",
+     "scrap"
+    ],
+    "Ore"
+   ],
+   [
+    "Output",
+    "out",
+    4,
+    null
+   ]
+  ]
+ },
+ "chest": {
+  "title": "Storage Chest",
+  "groups": [
+   [
+    "Storage",
+    "store",
+    18,
+    "any"
+   ]
+  ]
+ },
+ "collector": {
+  "title": "Rain Collector",
+  "groups": [
+   [
+    "Empty bottles",
+    "in",
+    2,
+    [
+     "empty_bottle"
+    ],
+    "Bottle"
+   ],
+   [
+    "Filled bottles",
+    "out",
+    2,
+    null
+   ]
+  ]
+ },
+ "plot": {
+  "title": "Garden Plot",
+  "groups": [
+   [
+    "Seed",
+    "seed",
+    1,
+    [
+     "seed_carrot",
+     "seed_potato",
+     "seed_corn",
+     "seed_pumpkin",
+     "seed_flax",
+     "seed_berry",
+     "seed_herb"
+    ],
+    "Seed"
+   ]
+  ]
+ },
+ "planter": {
+  "title": "Planter Box",
+  "groups": [
+   [
+    "Seed",
+    "seed",
+    1,
+    [
+     "seed_carrot",
+     "seed_potato",
+     "seed_corn",
+     "seed_pumpkin",
+     "seed_flax",
+     "seed_berry",
+     "seed_herb"
+    ],
+    "Seed"
+   ]
+  ]
+ },
+ "loot": {
+  "title": "Contents",
+  "groups": [
+   [
+    "Contents",
+    "store",
+    12,
+    null
+   ]
+  ]
+ }
+}

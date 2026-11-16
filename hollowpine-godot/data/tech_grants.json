@@ -1,0 +1,38 @@
+{
+ "crossbow": [
+  "bolt"
+ ],
+ "flintlock": [
+  "ball"
+ ],
+ "revolver": [
+  "pistol_ammo"
+ ],
+ "bolt_rifle": [
+  "rifle_ammo"
+ ],
+ "trench_gun": [
+  "shell"
+ ],
+ "assault_rifle": [
+  "carbine_ammo"
+ ],
+ "pistol": [
+  "pistol_ammo"
+ ],
+ "marksman": [
+  "rifle_ammo"
+ ],
+ "combat_shotgun": [
+  "shell"
+ ],
+ "smg": [
+  "pistol_ammo"
+ ],
+ "service_rifle": [
+  "rifle_ammo"
+ ],
+ "musket": [
+  "ball"
+ ]
+}

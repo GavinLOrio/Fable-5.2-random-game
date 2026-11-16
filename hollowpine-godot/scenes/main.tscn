@@ -1,0 +1,68 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_0wfyh"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="2_sugp2"]
+
+[sub_resource type="PhysicalSkyMaterial" id="PhysicalSkyMaterial_jyhfs"]
+
+[sub_resource type="Sky" id="Sky_tbgi4"]
+sky_material = SubResource("PhysicalSkyMaterial_jyhfs")
+
+[sub_resource type="Environment" id="Environment_tefeu"]
+background_mode = 2
+sky = SubResource("Sky_tbgi4")
+tonemap_mode = 3
+ssao_enabled = true
+ssil_enabled = true
+sdfgi_enabled = true
+glow_enabled = true
+fog_enabled = true
+fog_density = 0.0015
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.006
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_o6xl0"]
+albedo_color = Color(0.27, 0.36, 0.2, 1)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_tipki"]
+material = SubResource("StandardMaterial3D_o6xl0")
+size = Vector2(400, 400)
+
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_85g3d"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g2els"]
+radius = 0.34
+height = 1.75
+
+[node name="Main" type="Node3D" unique_id=1033543318]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1639667352]
+environment = SubResource("Environment_tefeu")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=2113211258]
+transform = Transform3D(0.81915206, 0.43938506, -0.36868784, 0, 0.64278764, 0.76604444, 0.57357645, -0.62750685, 0.5265408, 0, 0, 0)
+shadow_enabled = true
+directional_shadow_max_distance = 250.0
+
+[node name="Ground" type="StaticBody3D" parent="." unique_id=1402028767]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground" unique_id=423159935]
+mesh = SubResource("PlaneMesh_tipki")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground" unique_id=1901317655]
+shape = SubResource("WorldBoundaryShape3D_85g3d")
+
+[node name="Player" type="CharacterBody3D" parent="." unique_id=215141241 instance=ExtResource("1_0wfyh")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+collision_layer = 2
+script = ExtResource("2_sugp2")
+
+[node name="Collision" type="CollisionShape3D" parent="Player" unique_id=2023318414]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.875, 0)
+shape = SubResource("CapsuleShape3D_g2els")
+
+[node name="Head" type="Node3D" parent="Player" unique_id=681536275]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
+
+[node name="Camera" type="Camera3D" parent="Player/Head" unique_id=365371177]
+fov = 72.0

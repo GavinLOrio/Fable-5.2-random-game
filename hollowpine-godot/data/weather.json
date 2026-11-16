@@ -1,0 +1,42 @@
+{
+ "clear": {
+  "n": "Clear",
+  "w": 5,
+  "sight": 1,
+  "light": 1,
+  "fog": 1,
+  "rain": 0
+ },
+ "overcast": {
+  "n": "Overcast",
+  "w": 3,
+  "sight": 0.9,
+  "light": 0.72,
+  "fog": 1.5,
+  "rain": 0
+ },
+ "rain": {
+  "n": "Rain",
+  "w": 3,
+  "sight": 0.7,
+  "light": 0.6,
+  "fog": 2.2,
+  "rain": 0.6
+ },
+ "storm": {
+  "n": "Thunderstorm",
+  "w": 1.3,
+  "sight": 0.5,
+  "light": 0.42,
+  "fog": 3,
+  "rain": 1
+ },
+ "fog": {
+  "n": "Fog",
+  "w": 1.6,
+  "sight": 0.45,
+  "light": 0.8,
+  "fog": 6.5,
+  "rain": 0
+ }
+}

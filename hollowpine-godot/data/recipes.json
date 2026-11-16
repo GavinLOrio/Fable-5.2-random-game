@@ -1,0 +1,578 @@
+[
+ {
+  "id": "rope",
+  "cost": {
+   "fiber": 3
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "cloth",
+  "cost": {
+   "fiber": 4
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "bandage",
+  "cost": {
+   "cloth": 2
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "cloth_hood",
+  "cost": {
+   "cloth": 3
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "cloth_shirt",
+  "cost": {
+   "cloth": 5,
+   "rope": 1
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "cloth_pants",
+  "cost": {
+   "cloth": 4,
+   "rope": 1
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "cloth_shoes",
+  "cost": {
+   "cloth": 3,
+   "fiber": 4
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "small_backpack",
+  "cost": {
+   "cloth": 6,
+   "rope": 2
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "stone_axe",
+  "cost": {
+   "stick": 2,
+   "stone": 2,
+   "fiber": 2
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "stone_pick",
+  "cost": {
+   "stick": 2,
+   "stone": 3,
+   "fiber": 2
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "hammer",
+  "cost": {
+   "stick": 2,
+   "stone": 2,
+   "rope": 1
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "club",
+  "cost": {
+   "log": 1
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "spear",
+  "cost": {
+   "stick": 3,
+   "bone": 2,
+   "rope": 1
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "torch",
+  "cost": {
+   "stick": 1,
+   "cloth": 1
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "bow",
+  "cost": {
+   "stick": 3,
+   "rope": 2
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "arrow",
+  "cost": {
+   "stick": 2,
+   "stone": 1
+  },
+  "tier": 0,
+  "n": 4,
+  "st": null
+ },
+ {
+  "id": "poultice",
+  "cost": {
+   "herb": 2,
+   "cloth": 1
+  },
+  "tier": 0,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "water_bottle",
+  "cost": {
+   "empty_bottle": 1
+  },
+  "tier": 0,
+  "n": 1,
+  "st": "water"
+ },
+ {
+  "id": "gunpowder",
+  "cost": {
+   "sulfur": 1,
+   "charcoal": 2
+  },
+  "tier": 1,
+  "n": 3,
+  "st": null
+ },
+ {
+  "id": "iron_axe",
+  "cost": {
+   "metal": 3,
+   "stick": 2,
+   "rope": 1
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "iron_pick",
+  "cost": {
+   "metal": 3,
+   "stick": 2,
+   "rope": 1
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "machete",
+  "cost": {
+   "metal": 4,
+   "cloth": 1
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "crossbow",
+  "cost": {
+   "log": 1,
+   "metal": 3,
+   "rope": 3
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "bolt",
+  "cost": {
+   "stick": 1,
+   "metal": 1
+  },
+  "tier": 1,
+  "n": 4,
+  "st": null
+ },
+ {
+  "id": "flintlock",
+  "cost": {
+   "metal": 5,
+   "log": 1,
+   "parts": 1
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "musket",
+  "cost": {
+   "metal": 9,
+   "log": 2,
+   "parts": 2
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "ball",
+  "cost": {
+   "metal": 1,
+   "gunpowder": 2,
+   "cloth": 1
+  },
+  "tier": 1,
+  "n": 5,
+  "st": null
+ },
+ {
+  "id": "hide_cap",
+  "cost": {
+   "hide": 2,
+   "rope": 1
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "hide_armor",
+  "cost": {
+   "hide": 6,
+   "rope": 3
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "hide_pants",
+  "cost": {
+   "hide": 4,
+   "rope": 2
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "hide_boots",
+  "cost": {
+   "hide": 3,
+   "rope": 1
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "large_backpack",
+  "cost": {
+   "hide": 8,
+   "rope": 4,
+   "cloth": 4
+  },
+  "tier": 1,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "revolver",
+  "cost": {
+   "metal": 10,
+   "parts": 3
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "bolt_rifle",
+  "cost": {
+   "metal": 16,
+   "log": 2,
+   "parts": 4
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "service_rifle",
+  "cost": {
+   "metal": 22,
+   "log": 2,
+   "parts": 7
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "smg",
+  "cost": {
+   "metal": 20,
+   "parts": 8
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "trench_gun",
+  "cost": {
+   "metal": 18,
+   "log": 1,
+   "parts": 5
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "pistol_ammo",
+  "cost": {
+   "metal": 1,
+   "gunpowder": 2
+  },
+  "tier": 2,
+  "n": 8,
+  "st": null
+ },
+ {
+  "id": "rifle_ammo",
+  "cost": {
+   "metal": 2,
+   "gunpowder": 3
+  },
+  "tier": 2,
+  "n": 6,
+  "st": null
+ },
+ {
+  "id": "shell",
+  "cost": {
+   "metal": 1,
+   "gunpowder": 3,
+   "cloth": 1
+  },
+  "tier": 2,
+  "n": 4,
+  "st": null
+ },
+ {
+  "id": "field_helmet",
+  "cost": {
+   "metal": 6,
+   "cloth": 1
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "field_armor",
+  "cost": {
+   "metal": 8,
+   "cloth": 8,
+   "hide": 2
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "field_pants",
+  "cost": {
+   "cloth": 8,
+   "metal": 3
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "field_boots",
+  "cost": {
+   "hide": 4,
+   "metal": 2
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "military_backpack",
+  "cost": {
+   "cloth": 16,
+   "metal": 6,
+   "parts": 2
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "medkit",
+  "cost": {
+   "cloth": 4,
+   "bandage": 2,
+   "berries": 6
+  },
+  "tier": 2,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "pistol",
+  "cost": {
+   "metal": 14,
+   "parts": 6
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "assault_rifle",
+  "cost": {
+   "metal": 34,
+   "parts": 14,
+   "electronics": 2
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "combat_shotgun",
+  "cost": {
+   "metal": 30,
+   "parts": 12
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "marksman",
+  "cost": {
+   "metal": 40,
+   "parts": 16,
+   "electronics": 5
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "carbine_ammo",
+  "cost": {
+   "metal": 2,
+   "gunpowder": 3
+  },
+  "tier": 3,
+  "n": 10,
+  "st": null
+ },
+ {
+  "id": "tac_helmet",
+  "cost": {
+   "metal": 10,
+   "electronics": 1
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "tac_armor",
+  "cost": {
+   "metal": 16,
+   "cloth": 12,
+   "electronics": 2
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "tac_pants",
+  "cost": {
+   "cloth": 10,
+   "metal": 6
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "tac_boots",
+  "cost": {
+   "hide": 4,
+   "metal": 4,
+   "cloth": 2
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ },
+ {
+  "id": "flashlight",
+  "cost": {
+   "metal": 4,
+   "electronics": 2
+  },
+  "tier": 3,
+  "n": 1,
+  "st": null
+ }
+]

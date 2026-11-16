@@ -1,0 +1,205 @@
+[
+ {
+  "id": "gunpowder",
+  "tier": 1,
+  "cost": 30,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "iron_axe",
+  "tier": 1,
+  "cost": 25,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "iron_pick",
+  "tier": 1,
+  "cost": 25,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "machete",
+  "tier": 1,
+  "cost": 40,
+  "req": "iron_axe",
+  "n": null
+ },
+ {
+  "id": "crossbow",
+  "tier": 1,
+  "cost": 45,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "hide_armor",
+  "tier": 1,
+  "cost": 40,
+  "req": null,
+  "n": "Hide armor set"
+ },
+ {
+  "id": "large_backpack",
+  "tier": 1,
+  "cost": 45,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "flintlock",
+  "tier": 1,
+  "cost": 60,
+  "req": "gunpowder",
+  "n": null
+ },
+ {
+  "id": "musket",
+  "tier": 1,
+  "cost": 90,
+  "req": "flintlock",
+  "n": null
+ },
+ {
+  "id": "s_furnace",
+  "tier": 1,
+  "cost": 30,
+  "req": null,
+  "n": "Furnace"
+ },
+ {
+  "id": "s_stone_wall",
+  "tier": 1,
+  "cost": 50,
+  "req": null,
+  "n": "Stone building"
+ },
+ {
+  "id": "s_gate",
+  "tier": 1,
+  "cost": 40,
+  "req": null,
+  "n": "Log Gate"
+ },
+ {
+  "id": "revolver",
+  "tier": 2,
+  "cost": 120,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "bolt_rifle",
+  "tier": 2,
+  "cost": 160,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "trench_gun",
+  "tier": 2,
+  "cost": 200,
+  "req": "revolver",
+  "n": null
+ },
+ {
+  "id": "smg",
+  "tier": 2,
+  "cost": 240,
+  "req": "revolver",
+  "n": null
+ },
+ {
+  "id": "service_rifle",
+  "tier": 2,
+  "cost": 280,
+  "req": "bolt_rifle",
+  "n": null
+ },
+ {
+  "id": "field_armor",
+  "tier": 2,
+  "cost": 160,
+  "req": null,
+  "n": "Field uniform set"
+ },
+ {
+  "id": "military_backpack",
+  "tier": 2,
+  "cost": 130,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "medkit",
+  "tier": 2,
+  "cost": 100,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "s_tower",
+  "tier": 2,
+  "cost": 120,
+  "req": null,
+  "n": "Watchtower"
+ },
+ {
+  "id": "s_lamp",
+  "tier": 2,
+  "cost": 80,
+  "req": null,
+  "n": "Lantern Post"
+ },
+ {
+  "id": "pistol",
+  "tier": 3,
+  "cost": 300,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "combat_shotgun",
+  "tier": 3,
+  "cost": 450,
+  "req": "pistol",
+  "n": null
+ },
+ {
+  "id": "assault_rifle",
+  "tier": 3,
+  "cost": 600,
+  "req": "pistol",
+  "n": null
+ },
+ {
+  "id": "marksman",
+  "tier": 3,
+  "cost": 750,
+  "req": "assault_rifle",
+  "n": null
+ },
+ {
+  "id": "tac_armor",
+  "tier": 3,
+  "cost": 520,
+  "req": null,
+  "n": "Tactical armor set"
+ },
+ {
+  "id": "flashlight",
+  "tier": 3,
+  "cost": 250,
+  "req": null,
+  "n": null
+ },
+ {
+  "id": "s_metal_wall",
+  "tier": 3,
+  "cost": 400,
+  "req": null,
+  "n": "Steel building"
+ }
+]

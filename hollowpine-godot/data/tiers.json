@@ -1,0 +1,26 @@
+[
+ {
+  "n": "Thatch",
+  "hp": 120
+ },
+ {
+  "n": "Wood",
+  "hp": 500,
+  "item": "log",
+  "per": 5
+ },
+ {
+  "n": "Stone",
+  "hp": 1400,
+  "item": "stone",
+  "per": 24,
+  "tech": "s_stone_wall"
+ },
+ {
+  "n": "Metal",
+  "hp": 3000,
+  "item": "metal",
+  "per": 8,
+  "tech": "s_metal_wall"
+ }
+]

@@ -1,0 +1,12 @@
+{
+ "iron_ore": {
+  "out": "metal",
+  "t": 10,
+  "need": 2
+ },
+ "scrap": {
+  "out": "metal",
+  "t": 12,
+  "need": 5
+ }
+}

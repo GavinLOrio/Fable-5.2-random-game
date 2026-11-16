@@ -1,0 +1,17 @@
+{
+ "raw_meat": {
+  "out": "cooked_meat",
+  "t": 14,
+  "need": 1
+ },
+ "potato": {
+  "out": "baked_potato",
+  "t": 16,
+  "need": 1
+ },
+ "corn": {
+  "out": "roast_corn",
+  "t": 14,
+  "need": 1
+ }
+}

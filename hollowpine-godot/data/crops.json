@@ -1,0 +1,121 @@
+{
+ "carrot": {
+  "n": "Carrots",
+  "days": 1,
+  "give": {
+   "carrot": [
+    3,
+    5
+   ],
+   "seed_carrot": [
+    1,
+    2
+   ]
+  },
+  "color": 14711338,
+  "leaf": 6265402,
+  "h": 0.35
+ },
+ "potato": {
+  "n": "Potatoes",
+  "days": 1.4,
+  "give": {
+   "potato": [
+    3,
+    6
+   ],
+   "seed_potato": [
+    1,
+    2
+   ]
+  },
+  "color": 12097640,
+  "leaf": 5209908,
+  "h": 0.4
+ },
+ "corn": {
+  "n": "Corn",
+  "days": 2,
+  "give": {
+   "corn": [
+    3,
+    5
+   ],
+   "seed_corn": [
+    1,
+    2
+   ]
+  },
+  "color": 15255610,
+  "leaf": 8367679,
+  "h": 1.6
+ },
+ "pumpkin": {
+  "n": "Pumpkins",
+  "days": 2.5,
+  "give": {
+   "pumpkin": [
+    2,
+    3
+   ],
+   "seed_pumpkin": [
+    1,
+    2
+   ]
+  },
+  "color": 14712874,
+  "leaf": 4160048,
+  "h": 0.45
+ },
+ "flax": {
+  "n": "Flax",
+  "days": 1,
+  "give": {
+   "fiber": [
+    5,
+    8
+   ],
+   "seed_flax": [
+    1,
+    2
+   ]
+  },
+  "color": 10273000,
+  "leaf": 10271320,
+  "h": 0.9
+ },
+ "berry": {
+  "n": "Berry cane",
+  "days": 1.6,
+  "give": {
+   "berries": [
+    6,
+    10
+   ],
+   "seed_berry": [
+    1,
+    1
+   ]
+  },
+  "color": 11543615,
+  "leaf": 3103266,
+  "h": 0.8
+ },
+ "herb": {
+  "n": "Healing herbs",
+  "days": 1.2,
+  "give": {
+   "herb": [
+    2,
+    4
+   ],
+   "seed_herb": [
+    1,
+    2
+   ]
+  },
+  "color": 6279328,
+  "leaf": 4164186,
+  "h": 0.4
+ }
+}

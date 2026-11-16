@@ -5,6 +5,7 @@ This repository holds three separate 3D games. Each is a single self-contained H
 - **Aquila** (`rome/index.html`): an open-world action game set in the Roman civil war, 49-44 BC. See below.
 - **Dawnward** (`index.html`): a smaller fantasy action game.
 - **Hollowpine** (`hollowpine/index.html`): a first-person survival game on a forested island. See below.
+- **Hollowpine for Godot** (`hollowpine-godot/`): the set-up for a Godot 4.7 version of Hollowpine with higher-quality graphics. Not ported yet; see its README.
 
 # Aquila
 
